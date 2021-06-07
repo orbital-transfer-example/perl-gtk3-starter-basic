@@ -1,0 +1,52 @@
+name: linux
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+env:
+  PERL5LIB: /home/runner/perl5/lib/perl5
+  PERL_LOCAL_LIB_ROOT: /home/runner/perl5
+  PERL_MB_OPT: --install_base /home/runner/perl5
+  PERL_MM_OPT: INSTALL_BASE=/home/runner/perl5
+
+jobs:
+  perl:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: perl -V
+        run: perl -V
+
+      - name: CPAN client
+        run: |
+          curl https://cpanmin.us | perl - App::cpanminus App::cpm -n
+          echo "/home/runner/perl5/bin" >> $GITHUB_PATH
+
+      - name: Install packages
+        run: |
+          sudo apt-get install -y --no-install-recommends $( perl ./maint/helper.pl get-packages )
+
+      - name: Prepare for cache
+        run: |
+          perl -V > perlversion.txt
+          ls -l perlversion.txt
+
+      - name: Cache CPAN modules
+        uses: actions/cache@v1
+        with:
+          path: ~/perl5
+          key: ${{ runner.os }}-build-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}
+
+      - name: Install Static Dependencies
+        run: |
+          cpm install --cpanfile=./cpanfile
