@@ -1,2 +1,5 @@
 # ignore build prefix
 build/
+
+# Vagrant configuration
+.vagrant/
