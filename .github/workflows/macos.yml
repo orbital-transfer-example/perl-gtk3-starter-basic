@@ -8,12 +8,6 @@ on:
       - '*'
   pull_request:
 
-env:
-  PERL5LIB: /Users/runner/perl5/lib/perl5
-  PERL_LOCAL_LIB_ROOT: /Users/runner/perl5
-  PERL_MB_OPT: --install_base /Users/runner/perl5
-  PERL_MM_OPT: INSTALL_BASE=/Users/runner/perl5
-
 jobs:
   perl:
 
@@ -28,29 +22,36 @@ jobs:
       - name: Set up Perl
         run: |
           brew install perl
-          curl https://cpanmin.us | perl - App::cpanminus App::cpm -n
-          echo "/Users/runner/perl5/bin" >> $GITHUB_PATH
-
-      - name: Install packages
-        run: |
-          brew install $( perl ./maint/helper.pl get-packages )
 
       - name: perl -V
         run: perl -V
 
       - name: Prepare for cache
+        id: cache-info
         run: |
           perl -V > perlversion.txt
           ls -l perlversion.txt
+          perl ./maint/helper.pl gha-get-cache-output
 
       - name: Cache CPAN modules
         uses: actions/cache@v1
         with:
-          path: ~/perl5
+          path: ${{ fromJSON( steps.cache-info.outputs.paths ) }}
           key: ${{ runner.os }}-build-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}
 
+      - name: CPAN client
+        run: perl ./maint/helper.pl setup-cpan-client
+      - name: Install packages
+        run: perl ./maint/helper.pl install-native-packages
       - name: Install Static Dependencies
-        run: |
-          cpm install --cpanfile=./cpanfile
+        run: perl ./maint/helper.pl install-via-cpanfile
+      - name: Create tarball
+        id: create-tarball
+        run: perl ./maint/helper.pl create-dist-tarball
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-dist
+          path: ${{  steps.create-tarball.outputs.dist-tarball-file }}
