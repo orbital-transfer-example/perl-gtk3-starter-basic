@@ -162,9 +162,6 @@ sub cmd_install_native_packages {
 	) or die;
 }
 
-use constant {
-	RUN_INSTALL_CPM_CPANFILE => [ qw() ],
-};
 sub cmd_install_via_cpanfile {
 	# Use shorter path particularly on Windows to avoid Win32 MAX_PATH
 	# issues.
