@@ -62,9 +62,7 @@ jobs:
       - name: Install packages
         run: perl ./maint/helper.pl install-native-packages
       - name: Install Static Dependencies
-        run: |
-          export PERL5OPT="-I$PWD/maint -MEUMMnosearch"
-          perl ./maint/helper.pl install-via-cpanfile
+        run: perl ./maint/helper.pl install-via-cpanfile
       - name: Create tarball
         id: create-tarball
         run: perl ./maint/helper.pl create-dist-tarball

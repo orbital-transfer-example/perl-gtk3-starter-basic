@@ -18,6 +18,7 @@ use Env qw(
 	$PERL_LOCAL_LIB_ROOT
 	$PERL_MB_OPT $PERL_MM_OPT
 	$PERL_CPANM_OPT
+	$PERL5OPT
 );
 use Cwd ();
 
@@ -118,6 +119,10 @@ sub _setup_perl_install {
 	$PERL_LOCAL_LIB_ROOT = $perl5_dir;
 	$PERL_MB_OPT = "--install_base $perl5_dir";
 	$PERL_MM_OPT = "INSTALL_BASE=$perl5_dir";
+
+	if( _is_msys2_mingw() ) {
+		$PERL5OPT="-I@{[ Cwd::getcwd() ]}/maint -MEUMMnosearch";
+	}
 }
 
 #### Commands
