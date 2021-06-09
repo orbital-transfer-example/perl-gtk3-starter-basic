@@ -29,6 +29,7 @@ use constant {
 };
 
 my $command_dispatch = {
+	'exec' => \&cmd_exec,
 	'get-packages' => \&cmd_get_packages,
 	'setup-cpan-client' => \&cmd_setup_cpan_client,
 	'install-native-packages' => \&cmd_install_native_packages,
@@ -42,6 +43,8 @@ sub main {
 
 	die "Need command: @{[ keys %$command_dispatch ]}"
 		unless $command;
+	die "Unknown command: $command"
+		unless exists $command_dispatch->{$command};
 
 	_setup_perl_install();
 	$IPC::Cmd::VERBOSE = 1;
@@ -126,6 +129,11 @@ sub _setup_perl_install {
 }
 
 #### Commands
+
+sub cmd_exec {
+	IPC::Cmd::run( command => \@ARGV ) or die;
+}
+
 sub cmd_get_packages {
 	my $packages = get_package_list();
 	print join(' ', @$packages), "\n";
