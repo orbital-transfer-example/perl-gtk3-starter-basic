@@ -81,14 +81,16 @@ sub _get_platform_type {
 	return $_PLATFORM_TYPE_CACHE;
 }
 
-sub get_package_list {
+sub read_devops_file {
 	my $yaml = CPAN::Meta::YAML->read_string(_read_file('maint/devops.yml'))
 		or die CPAN::Meta::YAML->errstr;
 	my $data = $yaml->[0];
-	my $packages;
-	return $data->{native}{ _get_platform_type() }{packages} || [];
+	return $data;
+}
 
-	$packages;
+sub get_package_list {
+	my $data = read_devops_file();
+	return $data->{native}{ _get_platform_type() }{packages} || [];
 }
 
 my $PLATFORM_PREFIX_GHA = {
