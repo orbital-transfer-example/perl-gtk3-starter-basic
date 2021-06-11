@@ -30,6 +30,7 @@ use constant {
 
 my $command_dispatch = {
 	'exec' => \&cmd_exec,
+	'check-devops-yaml' => \&cmd_check_devops_yaml,
 	'get-packages' => \&cmd_get_packages,
 	'setup-cpan-client' => \&cmd_setup_cpan_client,
 	'install-native-packages' => \&cmd_install_native_packages,
@@ -134,6 +135,16 @@ sub _setup_perl_install {
 
 sub cmd_exec {
 	IPC::Cmd::run( command => \@ARGV ) or die;
+}
+
+sub cmd_check_devops_yaml {
+	my $data = read_devops_file();
+	require YAML;
+	require Test::Deep;
+	require Test::More;
+	my $data_compare = YAML::LoadFile('maint/devops.yml');
+	Test::Deep::cmp_deeply( $data, $data_compare );
+	Test::More::done_testing();
 }
 
 sub cmd_get_packages {
