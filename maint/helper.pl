@@ -42,7 +42,7 @@ my $command_dispatch = {
 sub main {
 	my $command = shift @ARGV;
 
-	die "Need command: @{[ keys %$command_dispatch ]}"
+	die "Need command: @{[ sort keys %$command_dispatch ]}"
 		unless $command;
 	die "Unknown command: $command"
 		unless exists $command_dispatch->{$command};
