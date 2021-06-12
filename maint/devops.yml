@@ -16,3 +16,31 @@ native:
     packages:
       - mingw-w64-x86_64-gobject-introspection
       - mingw-w64-x86_64-gtk3
+dist:
+  msys2-mingw64:
+    wix:
+      app_shortname: 'perl-gtk3-starter'
+      manufacturer: 'Orbital Transfer Example'
+      product_name: 'Perl Gtk3 Starter Basic'
+      package_description: 'Perl Gtk3 Starter Basic Installer'
+      package_comments: 'This is an example of building a Perl Gtk3 application'
+      package_version: '0.001'
+    pacman:
+      filter:
+        - package: 'python'
+          files:
+            - '.*'
+        - package: '-(tcl|tk)$'
+          files:
+            - '.*'
+        - package: '-(dmake)$'
+          files:
+            - '.*'
+        - package: '.*'
+          files:
+            - '/share/(gtk-)?doc/'
+            - '/share/man/'
+            - '\.(c|h|html|pdf)$'
+            - '\.(gir)$'
+            - '\.(a)$'
+

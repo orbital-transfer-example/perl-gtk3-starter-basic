@@ -9,6 +9,8 @@ use CPAN::Meta::YAML; # only using for devops.yml
 use IPC::Cmd ();
 use JSON::PP ();
 use File::Spec;
+use File::Path ();
+use File::Copy ();
 use File::Basename ();
 use File::Temp ();
 use Config ();
@@ -37,6 +39,7 @@ my $command_dispatch = {
 	'install-via-cpanfile' => \&cmd_install_via_cpanfile,
 	'gha-get-cache-output' => \&cmd_gha_get_cache_output,
 	'create-dist-tarball' => \&cmd_create_dist_tarball,
+	'build-msi' => \&cmd_build_msi,
 };
 
 sub main {
@@ -53,6 +56,10 @@ sub main {
 }
 
 #### Utilities
+sub _log {
+	print STDERR @_;
+}
+
 sub _read_file {
 	my ($file) = @_;
 	open my $fh, "<:encoding(UTF-8)", $file;
@@ -113,6 +120,16 @@ sub get_prefix {
 
 sub get_perl_install_prefix {
 	File::Spec->catfile(get_prefix(), 'perl5');
+}
+
+sub get_msys2_install_prefix {
+	# /mingw64 gets installed under $PREFIX/mingw64
+	get_prefix();
+}
+
+sub get_msys2_base {
+	chomp( my $msys2_base = `cygpath -w /` );
+	$msys2_base;
 }
 
 sub _setup_perl_install {
@@ -228,6 +245,111 @@ sub cmd_create_dist_tarball {
 
 	if( _is_github_action() ) {
 		print '::set-output name=dist-tarball-file::', $tarball_name,  "\n";
+	}
+}
+
+sub _pacman_package_dependencies {
+	my ($package, @opts) = @_;
+
+	my %package_set = ();
+	my @linear_package_list = do {
+		my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
+			command => [ qw(pactree -l), @opts, $package  ],
+			verbose => 0,
+		) or die;
+
+		split /\n/, join "", @$stdout_buff;
+	};
+	# NOTE the output of linear package list contains the direct
+	# package
+	$package_set{$_} = 1 for @linear_package_list;
+	return [ keys %package_set ];
+}
+
+sub _pacman_package_direct_children {
+	my ($package) = @_;
+	return [ grep { $_ ne $package } @{ _pacman_package_dependencies( $package, qw(--depth 1) ) } ];
+}
+
+sub _pacman_package_files {
+	my ($package) = @_;
+	my @package_files = do {
+		my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
+			command => [ qw(pacman -Ql), $package ],
+			verbose => 0,
+		) or die;
+
+		map { (/^[\w-]+\s+(.*)$/)[0]  }
+			split /\n/, join "", @$stdout_buff;
+	};
+	\@package_files;
+}
+
+sub _pacman_apply_filters_to_package {
+	my ($package) = @_;
+
+	my $data = read_devops_file();
+	my $filters = $data->{dist}{ PLATFORM_MSYS2_MINGW64() }{pacman}{filter};
+
+	_log "Retrieving files for $package\n";
+	my $package_files = _pacman_package_files( $package );
+
+	my %package_files_copy = map { $_ => 1 } @$package_files;
+	for my $filter (@$filters) {
+		my $package_re = qr/$filter->{package}/;
+		if( $package =~ $package_re ) {
+			my $file_filter_re = qr/@{[ join "|", @{ $filter->{files} } ]}/;
+			FILE: for my $file (keys %package_files_copy) {
+				$package_files_copy{$file} = 0 if $file =~ $file_filter_re;
+			}
+		}
+	}
+	my @package_files_filtered = grep $package_files_copy{$_}, keys %package_files_copy;
+
+	_log "$package: @{[ scalar @package_files_filtered ]} files to copy / @{[ scalar @$package_files ]} total files\n";
+
+	\@package_files_filtered;
+}
+
+sub cmd_build_msi {
+	die "Can only build .msi on @{[ PLATFORM_MSYS2_MINGW64 ]}"
+		unless _is_msys2_mingw();
+
+	my @packages_to_process = (
+		'mingw-w64-x86_64-perl',
+		@{ get_package_list() }
+	);
+
+	my @files_to_copy;
+	my %packages_processed;
+	while(  @packages_to_process ) {
+		my $package = shift @packages_to_process;
+		next if exists $packages_processed{ $package };
+		my $files = _pacman_apply_filters_to_package( $package );
+		if( @$files ) {
+			push @files_to_copy, @$files;
+			push @packages_to_process,
+				grep { ! exists $packages_processed{$_} }
+				@{ _pacman_package_direct_children( $package ) };
+		} else {
+			_log "No files for $package. Skipping children\n";
+		}
+		$packages_processed{ $package } = 1;
+	}
+
+	my $msys2_base = get_msys2_base();
+	my $prefix = get_msys2_install_prefix();
+	for my $file (@files_to_copy) {
+		my $source_path = File::Spec->catfile( $msys2_base, $file );
+		my $target_path = File::Spec->catfile( $prefix, $file );
+
+		if( -f $source_path && ! -r $target_path ) {
+			my $parent_dir = File::Basename::dirname($target_path);
+			File::Path::make_path( $parent_dir ) if ! -d $parent_dir;
+			File::Copy::copy($source_path, $target_path )
+				or die "Could not copy: $source_path -> $target_path";
+			_log "Copied $source_path -> $target_path\n";
+		}
 	}
 }
 
