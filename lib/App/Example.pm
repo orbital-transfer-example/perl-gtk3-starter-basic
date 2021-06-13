@@ -22,9 +22,9 @@ lazy main_window => sub {
 	my $w = Gtk3::Window->new;
 	$w->set_title( $self->app_name );
 
-	$w->add(my $box = Gtk3::Box->new('vertical', 0));
-
-	$box->pack_start( $self->clicking_button, Glib::TRUE, Glib::FALSE, 0 );
+	$w->add( $self->clicking_button );
+	$self->clicking_button->set_halign('center');
+	$self->clicking_button->set_valign('center');
 
 	$w->signal_connect(
 		destroy => \&on_application_quit_cb, $self );
