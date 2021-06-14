@@ -591,15 +591,19 @@ sub _build_msi_build_wix {
 
 	# Get version from tags + commit
 	_install_native_packages([ qw(git) ]); # should have git
-	chomp( my $version = `git describe --always` );
-	$wix_data->{package_version} = $version || '0.000';
+	chomp( my $version = `git describe --exact-match --tags` );
+	$wix_data->{package_version} = $version || '';
 
 	chdir $prefix;
 	$tt->process( \<<TEMPLATE, $wix_data, $main_wxs ) or die $tt->error, "\n";
 <?xml version='1.0' encoding='windows-1252'?>
 <Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
   <Product Name='[% product_name %]' Id='[% product_uuid %]' UpgradeCode='[% uuid.create_str() %]'
-    Language='1033' Codepage='1252' Version='[% package_version %]' Manufacturer='[% manufacturer %]'>
+    Language='1033' Codepage='1252'
+    [% IF package_version %]
+    Version='[% package_version %]'
+    [% END %]
+    Manufacturer='[% manufacturer %]'>
 
     <Package Id='*' Keywords='Installer' Description="[% package_description %]"
       Comments='[% package_comments %]' Manufacturer='[% manufacturer %]'
@@ -669,7 +673,7 @@ TEMPLATE
 
 	my $output_path = File::Spec->catfile(
 		$prefix,
-		"@{[ $wix_data->{app_shortname} ]}-mingw64-@{[ $wix_data->{package_version} ]}.msi"
+		"@{[ $wix_data->{app_shortname} ]}-mingw64-@{[ $wix_data->{package_version} || 'noversion' ]}.msi"
 	);
 	IPC::Cmd::run( command => [
 		qw(light -v),
