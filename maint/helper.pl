@@ -590,6 +590,7 @@ sub _build_msi_build_wix {
 	$wix_data->{dirs} = \@dirs;
 
 	# Get version from tags + commit
+	_install_native_packages([ qw(git) ]); # should have git
 	chomp( my $version = `git describe --always` );
 	$wix_data->{package_version} = $version || '0.000';
 
