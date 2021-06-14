@@ -227,7 +227,7 @@ sub cmd_install_via_cpanfile {
 }
 
 sub cmd_gha_get_cache_output {
-	my @paths = ( get_gha_prefix() );
+	my @paths = ( get_perl_install_prefix() );
 	my $json = JSON::PP->new->allow_nonref;
 	my $paths_json = $json->encode(join "\n", @paths);
 	print '::set-output name=paths::', $paths_json,  "\n";
