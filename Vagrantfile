@@ -50,6 +50,7 @@ Vagrant.configure("2") do |config|
     $Env:MSYS2_DIR = 'msys64'
     $Env:MSYSTEM = 'MINGW64'
     choco install -y --allowemptychecksum msys2 --params " /InstallDir:C:/$Env:MSYS2_DIR"
+    choco install -y --allowemptychecksum wixtoolset
 
     # Install toolchain and Perl inside of MSYS2-MinGW64
     $Env:PATH = "C:\$Env:MSYS2_DIR\$Env:MSYSTEM\bin;C:\$Env:MSYS2_DIR\usr\bin;$Env:PATH"

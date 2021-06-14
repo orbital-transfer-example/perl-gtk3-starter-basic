@@ -17,6 +17,8 @@ native:
       - mingw-w64-x86_64-gobject-introspection
       - mingw-w64-x86_64-gtk3
 dist:
+  app:
+    script: 'bin/app.pl'
   msys2-mingw64:
     wix:
       app_shortname: 'perl-gtk3-starter'
@@ -25,6 +27,14 @@ dist:
       package_description: 'Perl Gtk3 Starter Basic Installer'
       package_comments: 'This is an example of building a Perl Gtk3 application'
       package_version: '0.001'
+      # Change the product_uuid for your own application by running:
+      #
+      #   $ perl -MData::UUID -E 'say Data::UUID->new->create_str'
+      #
+      # and replacing the value with the output.
+      product_uuid: 'B25AC910-CCC3-11EB-A822-4B25BA419C9A'
+      ProgramMenuDir: 'Perl Gtk3 Starter'
+      INSTALLDIR: 'Perl Gtk3 Starter App'
     pacman:
       filter:
         - package: 'python'
@@ -33,14 +43,22 @@ dist:
         - package: '-(tcl|tk)$'
           files:
             - '.*'
-        - package: '-(dmake)$'
+        - package: '-make$'
           files:
             - '.*'
         - package: '.*'
           files:
+            # docs
             - '/share/(gtk-)?doc/'
             - '/share/man/'
-            - '\.(c|h|html|pdf)$'
+            - '\.(html|pdf)$'
             - '\.(gir)$'
+            # includes
+            - '\.(c|h|hxx|idl)$'
+            # static libs
             - '\.(a)$'
-
+            # only keep certain .exe files needed for post-install
+            - >
+              (?<!glib-compile-schemas)
+              (?<!gdk-pixbuf-query-loaders)
+              \.exe$

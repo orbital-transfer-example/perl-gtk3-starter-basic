@@ -6,6 +6,7 @@ use strict;
 use warnings;
 
 use CPAN::Meta::YAML; # only using for devops.yml
+use Data::Dumper ();
 use IPC::Cmd ();
 use JSON::PP ();
 use File::Spec;
@@ -122,6 +123,14 @@ sub get_perl_install_prefix {
 	File::Spec->catfile(get_prefix(), 'perl5');
 }
 
+sub get_tool_prefix {
+	File::Spec->catfile( Cwd::getcwd(), '_tool' );
+}
+
+sub get_app_install_prefix {
+	File::Spec->catfile(get_prefix(), 'app');
+}
+
 sub get_msys2_install_prefix {
 	# /mingw64 gets installed under $PREFIX/mingw64
 	get_prefix();
@@ -134,11 +143,17 @@ sub get_msys2_base {
 
 sub _setup_perl_install {
 	my $perl5_dir = get_perl_install_prefix();
-	my $perl5_lib_dir  = File::Spec->catfile( $perl5_dir, qw(lib perl5));
-	my $perl5_arch_dir = File::Spec->catfile( $perl5_dir, qw(lib perl5), $Config::Config{archname} );
-	my $perl5_bin_dir = File::Spec->catfile( $perl5_dir, 'bin');
-	unshift @PATH, $perl5_bin_dir;
-	unshift @PERL5LIB, $perl5_lib_dir, $perl5_arch_dir;
+	my $tool_dir = get_tool_prefix();
+
+	for my $dir ( $perl5_dir, $tool_dir ) {
+		my $lib_dir  = File::Spec->catfile( $dir, qw(lib perl5));
+		my $arch_dir = File::Spec->catfile( $dir, qw(lib perl5), $Config::Config{archname} );
+		my $bin_dir =  File::Spec->catfile( $dir, 'bin');
+		unshift @PATH, $bin_dir;
+		unshift @PERL5LIB, $lib_dir, $arch_dir;
+		unshift @INC, $lib_dir, $arch_dir;
+	}
+
 	$PERL_LOCAL_LIB_ROOT = $perl5_dir;
 	$PERL_MB_OPT = "--install_base $perl5_dir";
 	$PERL_MM_OPT = "INSTALL_BASE=$perl5_dir";
@@ -188,8 +203,9 @@ my $RUN_INSTALL_CMD = {
 	PLATFORM_MACOS_HOMEBREW ,=> [ qw( brew install ) ],
 	PLATFORM_MSYS2_MINGW64 ,=> [ qw( pacman -S --needed --noconfirm ) ],
 };
-sub cmd_install_native_packages {
-	my $packages = get_package_list();
+
+sub _install_native_packages {
+	my ($packages) = @_;
 	return unless @$packages;
 
 	IPC::Cmd::run(
@@ -198,6 +214,11 @@ sub cmd_install_native_packages {
 			@$packages,
 		]
 	) or die;
+}
+
+sub cmd_install_native_packages {
+	my $packages = get_package_list();
+	_install_native_packages($packages);
 }
 
 sub cmd_install_via_cpanfile {
@@ -271,7 +292,7 @@ sub _pacman_package_direct_children {
 	return [ grep { $_ ne $package } @{ _pacman_package_dependencies( $package, qw(--depth 1) ) } ];
 }
 
-sub _pacman_package_files {
+sub _pacman_package_files_pacman {
 	my ($package) = @_;
 	my @package_files = do {
 		my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
@@ -283,6 +304,36 @@ sub _pacman_package_files {
 			split /\n/, join "", @$stdout_buff;
 	};
 	\@package_files;
+}
+
+my $pkgfile_setup_state = 0;
+sub _pacman_package_files_pkgfile {
+	my ($package) = @_;
+
+	if( !$pkgfile_setup_state ) {
+		_install_native_packages([ 'pkgfile' ]);
+		IPC::Cmd::run( command => [
+			qw(pkgfile --update),
+		]) or die;
+		$pkgfile_setup_state = 1;
+	}
+
+	my @package_files = do {
+		my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
+			command => [ qw(pkgfile -l), $package ],
+			verbose => 0,
+		) or die;
+
+		map { (/^[^\t]+\t(.*)$/)[0]  }
+			split /\n/, join "", @$stdout_buff;
+	};
+	\@package_files;
+}
+
+sub _pacman_package_files {
+	my ($package) = @_;
+	# pkgfile is faster than pacman
+	_pacman_package_files_pkgfile($package);
 }
 
 sub _pacman_apply_filters_to_package {
@@ -298,7 +349,7 @@ sub _pacman_apply_filters_to_package {
 	for my $filter (@$filters) {
 		my $package_re = qr/$filter->{package}/;
 		if( $package =~ $package_re ) {
-			my $file_filter_re = qr/@{[ join "|", @{ $filter->{files} } ]}/;
+			my $file_filter_re = qr/@{[ join "|", @{ $filter->{files} } ]}/x;
 			FILE: for my $file (keys %package_files_copy) {
 				$package_files_copy{$file} = 0 if $file =~ $file_filter_re;
 			}
@@ -311,10 +362,124 @@ sub _pacman_apply_filters_to_package {
 	\@package_files_filtered;
 }
 
-sub cmd_build_msi {
-	die "Can only build .msi on @{[ PLATFORM_MSYS2_MINGW64 ]}"
-		unless _is_msys2_mingw();
+sub _build_msi_install_app {
+	IPC::Cmd::run( command => [
+		qw(cpanm .),
+		qw(--verbose -n --no-man-pages),
+		qw(-l), get_app_install_prefix(),
+	]) or die;
+}
 
+sub _build_msi_get_app_exec_info {
+	my $data = read_devops_file();
+	my $script_name = $data->{dist}{app}{script};
+	my $basename = File::Basename::basename( $script_name, qw(.pl) );
+	return +{
+		script_path => $script_name,
+		basename => $basename,
+		par_output_name => "$basename@{[ $Config::Config{_exe} ]}",
+	}
+}
+
+sub _build_msi_par_packer {
+	IPC::Cmd::run( command => [
+		qw(cpanm -n --no-man-pages),
+		qw(-L), get_tool_prefix(),
+		qw( Template Data::UUID PAR::Packer Win32::HideConsole ),
+	]) or die;
+
+	IPC::Cmd::run( command => [
+		qw(cpanm -n --no-man-pages),
+		qw(-L), get_perl_install_prefix(),
+		qw( Win32::HideConsole ),
+	]) or die;
+
+	my $exec_info = _build_msi_get_app_exec_info();
+
+	my ($fh, $filename) = File::Temp::tempfile();
+	my $app_rel_prefix = [ File::Spec->splitdir(
+		File::Spec->abs2rel( get_app_install_prefix(), get_prefix() )
+	) ];
+
+	print $fh <<'EOF';
+use strict;
+use warnings;
+
+my $app_rel_prefix;
+EOF
+	print $fh <<EOF;
+BEGIN {
+	@{[ Data::Dumper->Dump( [$app_rel_prefix], [qw( app_rel_prefix )] ) ]}
+}
+
+EOF
+
+	print $fh <<'EOF';
+use Env qw(@PATH);
+
+BEGIN {
+	if( exists $ENV{PAR_PROGNAME} ) {
+		# running under PAR::Packer
+		require File::Basename;
+		require File::Spec;
+		my $prefix = File::Basename::dirname( $ENV{PAR_PROGNAME} );
+		unshift @PATH, map {
+			File::Spec->catfile( $prefix, @$_ )
+		} (
+			[qw(mingw64 bin)],
+		);
+
+		# to load Perl core modules
+		unshift @INC, File::Spec->catfile( $prefix,
+			qw(mingw64 lib perl5 core_perl) );
+
+		# load app deps
+		require local::lib;
+		local::lib->import(
+			'--no-create',
+			File::Spec->catfile( $prefix, qw(perl5) ),
+			File::Spec->catfile( $prefix, qw(app) ),
+		);
+
+		if( ! $ENV{PAR_MSWIN32_NOHIDE} && $^O eq 'MSWin32' ) {
+			# Removes the persistent console window when compiled
+			# with /SUBSYSTEM:CONSOLE
+			print "Reticulating splines...\n";
+			require Win32::HideConsole;
+			Win32::HideConsole::hide_console();
+
+			# Removes the console windows for subprocesses that run under
+			# the cmd.exe shell when compiled with /SUBSYSTEM:WINDOWS
+			require Win32;
+			Win32::SetChildShowWindow(0);
+		}
+	}
+}
+
+EOF
+
+	# Add original script
+	print $fh _read_file( $exec_info->{script_path} );
+
+	IPC::Cmd::run( command => [
+		$^X, qw(-c),
+		qq{-Mlocal::lib=--no-create,@{[ get_app_install_prefix() ]}},
+		$filename,
+	]) or die;
+
+	# Using the /SUBSYSTEM:CONSOLE (no --gui option)
+	IPC::Cmd::run( command => [
+		$^X,
+		qw(-S pp),
+		# Modules to bundle
+		( map { qw(-M), $_ } qw(Env Tie::Array local::lib) ),
+		qw( -vvv -n -B ),
+		qw(-o), File::Spec->catfile( get_prefix(), $exec_info->{par_output_name} ),
+		$filename,
+	]) or die;
+}
+
+sub _build_msi_copy_msys2_deps {
 	my @packages_to_process = (
 		'mingw-w64-x86_64-perl',
 		@{ get_package_list() }
@@ -351,6 +516,177 @@ sub cmd_build_msi {
 			_log "Copied $source_path -> $target_path\n";
 		}
 	}
+
+	# Post-install
+	my $old_cwd = Cwd::getcwd();
+
+	unshift @PATH, File::Spec->catfile( $prefix,
+		qw(mingw64 bin),
+	);
+
+	chdir $prefix;
+
+	# NOTE might not need to copy these into prefix.
+	#
+	# For example, use $ENV{GDK_PIXBUF_MODULE_FILE} for
+	# gdk-pixbuf-query-loaders.
+	IPC::Cmd::run( command => [
+		qw(gdk-pixbuf-query-loaders --update-cache)
+	]) or die;
+
+	IPC::Cmd::run( command => [
+		qw(glib-compile-schemas),
+			File::Spec->catfile( qw(mingw64 share glib-2.0 schemas) )
+	]) or die;
+
+	chdir $old_cwd;
+}
+
+sub _build_msi_get_paraffin {
+	my $paraffin_tool_dir = File::Spec->catfile( get_tool_prefix(), 'Paraffin');
+	my $paraffin_download_url = 'https://github.com/Wintellect/Paraffin/releases/download/3.7.1/Paraffin.zip';
+	my $paraffin_zip_path = File::Spec->catfile( $paraffin_tool_dir, 'Paraffin.zip' );
+	my $paraffin_top_dir = File::Spec->catfile( $paraffin_tool_dir, 'extract' );
+	my $paraffin_exe = File::Spec->catfile($paraffin_top_dir, 'Paraffin.exe');
+	if( !-d $paraffin_tool_dir ) {
+		File::Path::make_path( $paraffin_tool_dir );
+		IPC::Cmd::run( command => [
+			qw(wget),
+			qw(-P), $paraffin_tool_dir,
+			$paraffin_download_url,
+		]) or die;
+		File::Path::make_path $paraffin_top_dir;
+		IPC::Cmd::run( command => [
+			qw(C:/Windows/System32/tar),
+			qw(-C), $paraffin_top_dir,
+			qw(-xf), $paraffin_zip_path,
+		]) or die;
+	}
+
+	return $paraffin_exe;
+}
+
+sub _build_msi_build_wix {
+	my $old_cwd = Cwd::getcwd();
+	my $prefix = get_prefix();
+
+	require Data::UUID;
+	require Template;
+
+	my $paraffin_exe = _build_msi_get_paraffin();
+	my $tt = Template->new;
+
+	my $main_wxs = 'app.wxs';
+	my $main_wixobj = 'app.wixobj';
+	my @wxs_files;
+	my @wixobj_files;
+
+	my @dirs = qw(app mingw64 perl5);
+
+	my $data = read_devops_file();
+	my $wix_data = $data->{dist}{ PLATFORM_MSYS2_MINGW64() }{wix};
+	$wix_data->{exec} = _build_msi_get_app_exec_info();
+	$wix_data->{uuid} = Data::UUID->new;
+	$wix_data->{dirs} = \@dirs;
+
+	chdir $prefix;
+	$tt->process( \<<TEMPLATE, $wix_data, $main_wxs ) or die $tt->error, "\n";
+<?xml version='1.0' encoding='windows-1252'?>
+<Wix xmlns='http://schemas.microsoft.com/wix/2006/wi'>
+  <Product Name='[% product_name %]' Id='[% product_uuid %]' UpgradeCode='[% uuid.create_str() %]'
+    Language='1033' Codepage='1252' Version='[% package_version %]' Manufacturer='[% manufacturer %]'>
+
+    <Package Id='*' Keywords='Installer' Description="[% package_description %]"
+      Comments='[% package_comments %]' Manufacturer='[% manufacturer %]'
+      InstallerVersion='100' Languages='1033' Compressed='yes' SummaryCodepage='1252' />
+
+    <Media Id='1' Cabinet='Sample.cab' EmbedCab='yes' DiskPrompt="CD-ROM #1" />
+    <Property Id='DiskPrompt' Value="[% package_description %] Installation [1]" />
+
+    <Directory Id='TARGETDIR' Name='SourceDir'>
+      <Directory Id='ProgramFilesFolder' Name='PFiles'>
+        <Directory Id='INSTALLDIR' Name='[% INSTALLDIR %]'>
+
+          <Component Id='MainExecutable' Guid='[% uuid.create_str() %]'>
+            <File Id='[% exec.basename %]EXE' Name='[% exec.par_output_name %]' DiskId='1' Source='[% exec.par_output_name %]' KeyPath='yes'>
+              <Shortcut Id="startmenuPR" Directory="ProgramMenuDir" Name="[% product_name %]" WorkingDirectory='INSTALLDIR' Icon="[% exec.basename %].exe" IconIndex="0" Advertise="yes" />
+              <Shortcut Id="desktopPR" Directory="DesktopFolder" Name="[% product_name %]" WorkingDirectory='INSTALLDIR' Icon="[% exec.basename %].exe" IconIndex="0" Advertise="yes" />
+            </File>
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder" Name="Programs">
+        <Directory Id="ProgramMenuDir" Name="[% ProgramMenuDir %]">
+          <Component Id="ProgramMenuDir" Guid="[% uuid.create_str() %]">
+            <RemoveFolder Id='ProgramMenuDir' On='uninstall' />
+            <RegistryValue Root='HKCU' Key='Software\[Manufacturer]\[ProductName]' Type='string' Value='' KeyPath='yes' />
+          </Component>
+        </Directory>
+      </Directory>
+
+      <Directory Id="DesktopFolder" Name="Desktop" />
+    </Directory>
+
+    <Feature Id='Complete' Level='1'>
+      <ComponentRef Id='MainExecutable' />
+      <ComponentRef Id='ProgramMenuDir' />
+      [% FOREACH d IN dirs %]
+      <ComponentGroupRef Id='app_[% d %]' />
+      [% END %]
+    </Feature>
+
+    <Icon Id="[% exec.basename %].exe" SourceFile="[% exec.par_output_name %]" />
+
+  </Product>
+</Wix>
+
+TEMPLATE
+
+	for my $dir (@dirs) {
+		my $group_name = "app_$dir"; # same name as ComponentGroupRef
+		my $wxs = "$group_name.wxs";
+		my $wixobj = "$group_name.wixobj";
+		IPC::Cmd::run( command => [
+			$paraffin_exe,
+			qw(-d), $dir,
+			qw(-gn), $group_name,
+			$wxs,
+		]) or die;
+		push @wxs_files, $wxs;
+		push @wixobj_files, $wixobj;
+	}
+
+	push @PATH, "C:/Program Files (x86)/WiX Toolset v3.11/bin";
+	IPC::Cmd::run( command => [
+		qw(candle), @wxs_files, $main_wxs
+	]) or die;
+
+	my $output_path = File::Spec->catfile(
+		$prefix,
+		"@{[ $wix_data->{app_shortname} ]}-mingw64-@{[ $wix_data->{package_version} ]}.msi"
+	);
+	IPC::Cmd::run( command => [
+		qw(light -v),
+		@wixobj_files, $main_wixobj,
+		qw(-o), $output_path,
+	]) or die;
+
+	if( _is_github_action() ) {
+		print '::set-output name=asset::', $output_path,  "\n";
+	}
+
+	chdir $old_cwd;
+}
+
+sub cmd_build_msi {
+	die "Can only build .msi on @{[ PLATFORM_MSYS2_MINGW64 ]}"
+		unless _is_msys2_mingw();
+
+	_build_msi_install_app;
+	_build_msi_par_packer;
+	_build_msi_copy_msys2_deps;
+	_build_msi_build_wix;
 }
 
 main;
