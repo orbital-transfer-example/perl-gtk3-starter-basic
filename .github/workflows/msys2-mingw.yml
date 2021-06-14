@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - '*'
-    tags-ignore:
-      - '*'
   pull_request:
 
 jobs:
@@ -71,3 +69,19 @@ jobs:
         with:
           name: win32-dist
           path: ${{  steps.create-tarball.outputs.dist-tarball-file }}
+
+      - name: Build .msi
+        id: build-msi
+        run: perl ./maint/helper.pl build-msi
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: win32-msi
+          path: ${{  steps.build-msi.outputs.asset }}
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{  steps.build-msi.outputs.asset }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
