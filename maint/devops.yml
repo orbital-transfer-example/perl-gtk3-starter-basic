@@ -26,7 +26,6 @@ dist:
       product_name: 'Perl Gtk3 Starter Basic'
       package_description: 'Perl Gtk3 Starter Basic Installer'
       package_comments: 'This is an example of building a Perl Gtk3 application'
-      package_version: '0.001'
       # Change the product_uuid for your own application by running:
       #
       #   $ perl -MData::UUID -E 'say Data::UUID->new->create_str'

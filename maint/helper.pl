@@ -589,6 +589,10 @@ sub _build_msi_build_wix {
 	$wix_data->{uuid} = Data::UUID->new;
 	$wix_data->{dirs} = \@dirs;
 
+	# Get version from tags + commit
+	chomp( my $version = `git describe --always` );
+	$wix_data->{package_version} = $version;
+
 	chdir $prefix;
 	$tt->process( \<<TEMPLATE, $wix_data, $main_wxs ) or die $tt->error, "\n";
 <?xml version='1.0' encoding='windows-1252'?>
