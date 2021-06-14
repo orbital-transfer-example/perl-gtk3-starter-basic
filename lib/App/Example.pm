@@ -47,12 +47,12 @@ lazy clicking_button => sub {
 	);
 	$button->set_label("Click here");
 	$button->set('always-show-image', Glib::TRUE);
-	my $count = 0;
 	my $label = "Click here";
 
 	$button->signal_connect(
 		clicked => sub {
-			++$count;
+			$self->_increment_clicking_button_count;
+			my $count = $self->clicking_button_count;
 			$button->set_label(
 				sprintf(
 					( $count == 1
@@ -65,6 +65,25 @@ lazy clicking_button => sub {
 
 	$button;
 };
+
+=attr clicking_button_count
+
+Count of times the button has been clicked.
+
+=cut
+rw clicking_button_count => default => sub { 0 };
+
+# =method _increment_clicking_button_count
+#
+# [private]
+#
+# Increments C<clicking_button_count>.
+#
+# =cut
+sub _increment_clicking_button_count {
+	my ($self) = @_;
+	$self->clicking_button_count( $self->clicking_button_count + 1 );
+}
 
 =method main
 
