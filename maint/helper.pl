@@ -591,7 +591,7 @@ sub _build_msi_build_wix {
 
 	# Get version from tags + commit
 	chomp( my $version = `git describe --always` );
-	$wix_data->{package_version} = $version;
+	$wix_data->{package_version} = $version || '0.000';
 
 	chdir $prefix;
 	$tt->process( \<<TEMPLATE, $wix_data, $main_wxs ) or die $tt->error, "\n";
