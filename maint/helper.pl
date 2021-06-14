@@ -385,7 +385,7 @@ sub _build_msi_par_packer {
 	IPC::Cmd::run( command => [
 		qw(cpanm -n --no-man-pages),
 		qw(-L), get_tool_prefix(),
-		qw( Template Data::UUID PAR::Packer Win32::HideConsole ),
+		qw( Template Data::UUID PAR::Packer ),
 	]) or die;
 
 	IPC::Cmd::run( command => [
