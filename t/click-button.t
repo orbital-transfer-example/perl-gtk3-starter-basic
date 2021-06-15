@@ -3,6 +3,10 @@
 use strict;
 use warnings;
 
+BEGIN {
+	$ENV{'NO_AT_BRIDGE'} = 1; # faster test loading
+}
+
 use Test::More tests => 1;
 
 use App::Example;
