@@ -53,9 +53,9 @@ jobs:
         uses: actions/cache@v1
         with:
           path: ${{ fromJSON( steps.cache-info.outputs.paths ) }}
-          key: ${{ runner.os }}-build-msys2-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}
+          key: ${{ runner.os }}-build-msys2-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}-${{ secrets.CACHE_VERSION }}
           restore-keys: |
-            ${{ runner.os }}-build-msys2-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}
+            ${{ runner.os }}-build-msys2-${{ hashFiles('perlversion.txt') }}-${{ hashFiles('cpanfile') }}-${{ secrets.CACHE_VERSION }}
 
       - name: CPAN client
         run: perl ./maint/helper.pl setup-cpan-client
