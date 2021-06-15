@@ -265,7 +265,7 @@ sub cmd_run_tests {
 	my @dirs_exist = grep { -d } @dirs;
 	return unless @dirs_exist;
 
-	my @prove_command = ( qw( prove -lvr ), @dirs_exist );
+	my @prove_command = ( $^X, qw(-S prove -lvr ), @dirs_exist );
 
 	if( _is_debian() ) {
 		unshift @prove_command, qw(xvfb-run -a);
