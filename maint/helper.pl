@@ -219,6 +219,9 @@ sub _install_native_packages {
 
 sub cmd_install_native_packages {
 	my $packages = get_package_list();
+	if( _is_debian() ) {
+		push @$packages, qw(xvfb);
+	}
 	_install_native_packages($packages);
 }
 
@@ -262,8 +265,14 @@ sub cmd_run_tests {
 	my @dirs_exist = grep { -d } @dirs;
 	return unless @dirs_exist;
 
+	my @prove_command = ( qw( prove -lvr ), @dirs_exist );
+
+	if( _is_debian() ) {
+		unshift @prove_command, qw(xvfb-run -a);
+	}
+
 	IPC::Cmd::run( command => [
-		qw( prove -lvr ), @dirs_exist
+		@prove_command
 	]) or die;
 }
 
