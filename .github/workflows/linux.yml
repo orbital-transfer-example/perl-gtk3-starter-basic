@@ -40,6 +40,8 @@ jobs:
         run: perl ./maint/helper.pl install-native-packages
       - name: Install Static Dependencies
         run: perl ./maint/helper.pl install-via-cpanfile
+      - name: Run tests
+        run: perl ./maint/helper.pl run-tests
       - name: Create tarball
         id: create-tarball
         run: perl ./maint/helper.pl create-dist-tarball

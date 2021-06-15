@@ -39,6 +39,7 @@ my $command_dispatch = {
 	'install-native-packages' => \&cmd_install_native_packages,
 	'install-via-cpanfile' => \&cmd_install_via_cpanfile,
 	'gha-get-cache-output' => \&cmd_gha_get_cache_output,
+	'run-tests' => \&cmd_run_tests,
 	'create-dist-tarball' => \&cmd_create_dist_tarball,
 	'build-msi' => \&cmd_build_msi,
 };
@@ -218,6 +219,9 @@ sub _install_native_packages {
 
 sub cmd_install_native_packages {
 	my $packages = get_package_list();
+	if( _is_debian() ) {
+		push @$packages, qw(xvfb);
+	}
 	_install_native_packages($packages);
 }
 
@@ -253,6 +257,23 @@ sub cmd_gha_get_cache_output {
 	my $paths_json = $json->encode(join "\n", @paths);
 	print '::set-output name=paths::', $paths_json,  "\n";
 	print '::set-output name=prefix::', get_gha_prefix(),  "\n";
+}
+
+sub cmd_run_tests {
+	my @dirs = qw(t xt);
+
+	my @dirs_exist = grep { -d } @dirs;
+	return unless @dirs_exist;
+
+	my @prove_command = ( $^X, qw(-S prove -lvr ), @dirs_exist );
+
+	if( _is_debian() ) {
+		unshift @prove_command, qw(xvfb-run -a);
+	}
+
+	IPC::Cmd::run( command => [
+		@prove_command
+	]) or die;
 }
 
 sub cmd_create_dist_tarball {
