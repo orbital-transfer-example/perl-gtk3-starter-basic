@@ -791,6 +791,8 @@ sub cmd_install_macports {
 	my $release_tag = 'continuous-macports';
 	my $release_title = 'Continuous MacPorts builds';
 
+	# Check for auth before anything else:
+	#   $ gh auth status
 
 	# ignore exit value because it may possibly not exist yet
 	IPC::Cmd::run( command => [
