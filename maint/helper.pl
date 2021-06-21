@@ -9,6 +9,7 @@ use CPAN::Meta::YAML; # only using for devops.yml
 use Data::Dumper ();
 use IPC::Cmd ();
 use JSON::PP ();
+use IO::File;
 use File::Spec;
 use File::Path ();
 use File::Copy ();
@@ -28,6 +29,7 @@ use Cwd ();
 use constant {
 	PLATFORM_LINUX_DEBIAN => 'debian',
 	PLATFORM_MACOS_HOMEBREW => 'macos-homebrew',
+	PLATFORM_MACOS_MACPORTS => 'macos-macports',
 	PLATFORM_MSYS2_MINGW64 => 'msys2-mingw64',
 };
 
@@ -731,6 +733,47 @@ sub cmd_setup_macports_ci {
 	IPC::Cmd::run( command => [
 		qw(bash -c), "source ./macports-ci install --prefix=@{[ MACPORTS_PREFIX ]}"
 	]) or die;
+
+	_log "Using sudo to edit MacPorts configuration\n";
+	system( qw(sudo), $^X, qw(-e), 'do $ARGV[0]; _macports_edit_conf()', '--', File::Spec->rel2abs($0) );
 }
 
-main;
+sub _macports_edit_conf {
+	my $macports_conf_path = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports macports.conf) );
+	my $variants_conf_path = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports variants.conf) );
+
+	my $data = read_devops_file();
+	my $macports_pkg_data = $data->{native}{ PLATFORM_MACOS_MACPORTS() };
+	my $macports_dist_data = $data->{dist}{ PLATFORM_MACOS_MACPORTS() };
+
+	my $mp_conf_fh = IO::File->new;
+	$mp_conf_fh->open( $macports_conf_path, O_WRONLY|O_APPEND)
+		or die "Could not open $macports_conf_path";
+	my $mp_vari_fh = IO::File->new;
+	$mp_vari_fh->open( $variants_conf_path, O_WRONLY|O_APPEND)
+		or die "Could not open $variants_conf_path";
+	if( exists $macports_dist_data->{macosx_deployment_target} ) {
+		die "macosx_deployment_target invalid"
+			unless $macports_dist_data->{macosx_deployment_target} =~ /^(10|11).[0-9]+$/;
+		print $mp_conf_fh <<EOF
+buildfromsource always
+macosx_deployment_target @{[ $macports_dist_data->{macosx_deployment_target} ]}
+EOF
+	}
+
+	if( exists $macports_dist_data->{macosx_sdk_version} ) {
+		die "macosx_sdk_version invalid"
+			unless $macports_dist_data->{macosx_sdk_version} =~ /^(10|11).[0-9]+$/;
+		print $mp_conf_fh <<EOF
+macosx_sdk_version @{[ $macports_dist_data->{macosx_sdk_version} ]}
+EOF
+	}
+
+	if( exists $macports_pkg_data->{variants} ) {
+		print $mp_vari_fh join "\n", @{ $macports_pkg_data->{variants} };
+	}
+
+	system( qw(tail -20), $macports_conf_path, $variants_conf_path );
+}
+
+main if not caller;
