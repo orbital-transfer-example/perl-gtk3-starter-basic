@@ -12,6 +12,25 @@ native:
       - gtk-mac-integration
       - gobject-introspection
       - gnome-icon-theme
+  macos-macports:
+    packages:
+      - gtk3
+      - gtk-osx-application-gtk3
+      - gobject-introspection
+      - adwaita-icon-theme
+    variants:
+      - '+no_static'
+      - '-x11'
+      - '+no_x11'
+      - '+quartz'
+      - '-perl5_26'
+      - '-perl5_28'
+      - '+perl5_30'
+      - '-python27'
+      - '-python36'
+      - '-python37'
+      - '-python38'
+      - '+python39'
   msys2-mingw64:
     packages:
       - mingw-w64-x86_64-gobject-introspection
