@@ -18,3 +18,5 @@ jobs:
 
       - name: Setup MacPorts
         run: /usr/bin/perl ./maint/helper.pl setup-macports-ci
+      - name: Install ports
+        run: /usr/bin/perl ./maint/helper.pl install-macports

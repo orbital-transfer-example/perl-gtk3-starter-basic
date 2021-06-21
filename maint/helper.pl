@@ -45,6 +45,7 @@ my $command_dispatch = {
 	'create-dist-tarball' => \&cmd_create_dist_tarball,
 	'build-msi' => \&cmd_build_msi,
 	'setup-macports-ci' => \&cmd_setup_macports_ci,
+	'install-macports' => \&cmd_install_macports,
 };
 
 sub main {
@@ -774,6 +775,20 @@ EOF
 	}
 
 	system( qw(tail -20), $macports_conf_path, $variants_conf_path );
+}
+
+sub cmd_install_macports {
+	my $data = read_devops_file();
+	my $macports_pkg_data = $data->{native}{ PLATFORM_MACOS_MACPORTS() };
+
+	IPC::Cmd::run( command => [
+		qw( sudo port -N install ), qw(gperf)
+	]);
+
+	IPC::Cmd::run( command => [
+		qw(find), File::Spec->catfile( MACPORTS_PREFIX, qw(var macports software) ), qw(-type f)
+	]) or die;
+
 }
 
 main if not caller;
