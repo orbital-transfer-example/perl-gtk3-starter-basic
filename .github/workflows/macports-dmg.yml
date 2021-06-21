@@ -20,3 +20,5 @@ jobs:
         run: /usr/bin/perl ./maint/helper.pl setup-macports-ci
       - name: Install ports
         run: /usr/bin/perl ./maint/helper.pl install-macports
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
