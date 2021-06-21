@@ -42,6 +42,7 @@ my $command_dispatch = {
 	'run-tests' => \&cmd_run_tests,
 	'create-dist-tarball' => \&cmd_create_dist_tarball,
 	'build-msi' => \&cmd_build_msi,
+	'setup-macports-ci' => \&cmd_setup_macports_ci,
 };
 
 sub main {
@@ -718,6 +719,18 @@ sub cmd_build_msi {
 	_build_msi_par_packer;
 	_build_msi_copy_msys2_deps;
 	_build_msi_build_wix;
+}
+
+use constant MACPORTS_PREFIX => '/opt/orb';
+
+sub cmd_setup_macports_ci {
+	IPC::Cmd::run( command => [
+		qw(curl -LO https://raw.githubusercontent.com/GiovanniBussi/macports-ci/master/macports-ci)
+	]) or die;
+
+	IPC::Cmd::run( command => [
+		qw(bash -c), "source ./macports-ci install --prefix=@{[ MACPORTS_PREFIX ]}"
+	]) or die;
 }
 
 main;

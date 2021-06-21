@@ -1,0 +1,20 @@
+name: macports-dmg
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+jobs:
+  perl:
+
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup MacPorts
+        run: /usr/bin/perl ./maint/helper.pl setup-macports-ci
