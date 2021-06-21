@@ -167,6 +167,9 @@ sub _setup_perl_install {
 #### Commands
 
 sub cmd_exec {
+	# replace 'perl' with running perl
+	$ARGV[0] = $^X if $ARGV[0] eq 'perl';
+
 	IPC::Cmd::run( command => \@ARGV ) or die;
 }
 
