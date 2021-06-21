@@ -38,6 +38,8 @@ native:
 dist:
   app:
     script: 'bin/app.pl'
+  macos-macports:
+    macosx_deployment_target: '10.10'
   msys2-mingw64:
     wix:
       app_shortname: 'perl-gtk3-starter'
