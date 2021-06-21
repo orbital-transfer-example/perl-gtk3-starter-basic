@@ -15,6 +15,7 @@ use File::Path ();
 use File::Copy ();
 use File::Basename ();
 use File::Temp ();
+use File::Find ();
 use Config ();
 use Env qw(
 	@PATH
@@ -785,10 +786,35 @@ sub cmd_install_macports {
 		qw( sudo port -N install ), qw(gperf)
 	]);
 
+	my $mp_softare_path = File::Spec->catfile( MACPORTS_PREFIX, qw(var macports software) );
+
+	my $release_tag = 'continuous-macports';
+	my $release_title = 'Continuous MacPorts builds';
+
+
+	# ignore exit value because it may possibly not exist yet
 	IPC::Cmd::run( command => [
-		qw(find), File::Spec->catfile( MACPORTS_PREFIX, qw(var macports software) ), qw(-type f)
+		qw(gh release delete), $release_tag
+	]);
+
+	IPC::Cmd::run( command => [
+		qw(gh release),
+		qw(create),
+		'--notes', '',
+		qw(--prerelease),
+		qw(-t), $release_title,
+		$release_tag
 	]) or die;
 
+	my @files;
+	File::Find::find( sub { push @files, $File::Find::name if -f }, $mp_softare_path );
+
+	IPC::Cmd::run( command => [
+		qw(gh release),
+		qw(upload),
+		$release_tag,
+		@files
+	]) or die;
 }
 
 main if not caller;
