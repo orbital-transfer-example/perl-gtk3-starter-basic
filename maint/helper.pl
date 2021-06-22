@@ -16,6 +16,7 @@ use File::Copy ();
 use File::Basename ();
 use File::Temp ();
 use File::Find ();
+use List::Util qw(first);
 use Config ();
 use Env qw(
 	@PATH
@@ -779,14 +780,16 @@ EOF
 	system( qw(tail -20), $macports_conf_path, $variants_conf_path );
 }
 
+sub _gh_check_for_release {
+	my ($tag) = @_;
+	return !! IPC::Cmd::run( command => [
+		qw(gh release view), $tag
+	]);
+}
+
 sub cmd_install_macports {
 	my $data = read_devops_file();
 	my $macports_pkg_data = $data->{native}{ PLATFORM_MACOS_MACPORTS() };
-
-	IPC::Cmd::run( command => [
-		qw( sudo port -N install ), qw(gperf)
-	]);
-
 	my $mp_softare_path = File::Spec->catfile( MACPORTS_PREFIX, qw(var macports software) );
 
 	my $release_tag = 'continuous-macports';
@@ -795,29 +798,93 @@ sub cmd_install_macports {
 	# Check for auth before anything else:
 	#   $ gh auth status
 
-	# ignore exit value because it may possibly not exist yet
-	IPC::Cmd::run( command => [
-		qw(gh release delete), $release_tag
-	]);
+	my $release_exists = _gh_check_for_release( $release_tag );
+	my %software_from_assets;
+	if( $release_exists ) {
+		# get list of assets
+		my @asset_urls = do {
+			my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
+				command => [
+					qw(gh release view), $release_tag,
+						qw(--json assets),
+						qw(-q), '.assets.[].url'
+				],
+				verbose => 0,
+			) or die;
 
+			split /\n/, join "", @$stdout_buff;
+		};
+
+		# download the assets and move them into ports software directory
+		for my $asset_url (@asset_urls) {
+			_log "Downloading asset $asset_url\n";
+			system( qw(curl -LO), $asset_url );
+			my $asset_name = (split '/', $asset_url)[-1];
+
+			my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
+				command => [
+					qw(tar  xjf),
+						$asset_name,
+						qw(-O ./+CONTENTS)
+				],
+				verbose => 0,
+			) or die;
+			my $port_name_line = first { /^\@portname\s+/ }
+				split /\n/, join "", @$stdout_buff;
+			my ($port_name) = $port_name_line =~ /^\@portname\s+(.*)$/;
+
+			my $port_dir = File::Spec->catfile($mp_softare_path, $port_name);
+			File::Path::make_path( $port_dir ) if ! -d $port_dir;
+
+			my $source_path = $asset_name;
+			my $target_path = File::Spec->catfile( $port_dir, $asset_name );
+			File::Copy::move($source_path, $target_path )
+				or die "Could not copy: $source_path -> $target_path";
+			_log "Moved $source_path -> $target_path\n";
+			$software_from_assets{$target_path} = 1;
+		}
+	}
+
+	# build any assets that need to be built
 	IPC::Cmd::run( command => [
-		qw(gh release),
-		qw(create),
-		'--notes', '',
-		qw(--prerelease),
-		qw(-t), $release_title,
-		$release_tag
+		qw( sudo port -N install ),
+			@{ $macports_pkg_data->{packages} }
 	]) or die;
 
-	my @files;
-	File::Find::find( sub { push @files, $File::Find::name if -f }, $mp_softare_path );
+	## ignore exit value because it may possibly not exist yet
+	#IPC::Cmd::run( command => [
+		#qw(gh release delete), $release_tag
+	#]);
 
-	IPC::Cmd::run( command => [
-		qw(gh release),
-		qw(upload),
-		$release_tag,
-		@files
-	]) or die;
+	if( ! $release_exists ) {
+		IPC::Cmd::run( command => [
+			qw(gh release),
+			qw(create),
+			qw(--prerelease),
+			qw(-t), $release_title,
+			'--notes', 'Continous build of MacPorts archives',
+			$release_tag
+		]) or die;
+	}
+
+	my @files_found;
+	File::Find::find(
+		sub { push @files_found, $File::Find::name if -f },
+		$mp_softare_path );
+
+	my @files_to_upload;
+
+	my @new_files = grep { ! exists $software_from_assets{$_} } @files_found;
+	use Data::Dumper; print Dumper(\@new_files);
+
+	if( @files_to_upload ) {
+		IPC::Cmd::run( command => [
+			qw(gh release),
+			qw(upload),
+			$release_tag,
+			@files_to_upload
+		]) or die;
+	}
 }
 
 main if not caller;
