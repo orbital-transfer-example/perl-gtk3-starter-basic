@@ -787,6 +787,18 @@ sub _gh_check_for_release {
 	]);
 }
 
+sub _move_file_runner {
+	my $source_path = shift @ARGV;
+	my $target_path = shift @ARGV;
+
+	my $parent_dir = File::Basename::dirname($target_path);
+	File::Path::make_path( $parent_dir ) if ! -d $parent_dir;
+
+	File::Copy::move($source_path, $target_path )
+		or die "Could not copy: $source_path -> $target_path";
+	_log "Moved $source_path -> $target_path\n";
+}
+
 sub cmd_install_macports {
 	my $data = read_devops_file();
 	my $macports_pkg_data = $data->{native}{ PLATFORM_MACOS_MACPORTS() };
@@ -834,13 +846,14 @@ sub cmd_install_macports {
 			my ($port_name) = $port_name_line =~ /^\@portname\s+(.*)$/;
 
 			my $port_dir = File::Spec->catfile($mp_softare_path, $port_name);
-			File::Path::make_path( $port_dir ) if ! -d $port_dir;
-
 			my $source_path = $asset_name;
 			my $target_path = File::Spec->catfile( $port_dir, $asset_name );
-			File::Copy::move($source_path, $target_path )
-				or die "Could not copy: $source_path -> $target_path";
-			_log "Moved $source_path -> $target_path\n";
+
+			system( qw(sudo), $^X, qw(-e), 'do shift @ARGV; _move_file_runner()', '--',
+				File::Spec->rel2abs($0),
+				$source_path, $target_path
+			) == 0 or die;
+
 			$software_from_assets{$target_path} = 1;
 		}
 	}
