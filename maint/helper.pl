@@ -728,6 +728,7 @@ sub cmd_build_msi {
 use constant MACPORTS_PREFIX => '/opt/orb';
 
 sub cmd_setup_macports_ci {
+	# Use <https://github.com/GiovanniBussi/macports-ci> to install MacPorts in CI
 	IPC::Cmd::run( command => [
 		qw(curl -LO https://raw.githubusercontent.com/GiovanniBussi/macports-ci/master/macports-ci)
 	]) or die;
