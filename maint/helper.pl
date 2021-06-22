@@ -861,6 +861,8 @@ sub cmd_install_macports {
 	}
 
 	# install using archives instead of building from source
+	# TODO should be the intersection of deps of
+	# $macports_pkg_data->{packages} and ports_from_assets
 	IPC::Cmd::run( command => [
 		qw(sudo port -N install -b --unrequested),
 			( keys %ports_from_assets )
