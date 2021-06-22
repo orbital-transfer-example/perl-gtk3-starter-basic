@@ -812,6 +812,7 @@ sub cmd_install_macports {
 
 	my $release_exists = _gh_check_for_release( $release_tag );
 	my %software_from_assets;
+	my %ports_from_assets;
 	if( $release_exists ) {
 		# get list of assets
 		my @asset_urls = do {
@@ -855,8 +856,15 @@ sub cmd_install_macports {
 			) == 0 or die;
 
 			$software_from_assets{$target_path} = 1;
+			$ports_from_assets{$port_name} = 1;
 		}
 	}
+
+	# install using archives instead of building from source
+	IPC::Cmd::run( command => [
+		qw(sudo port -N install -b --unrequested),
+			( keys %ports_from_assets )
+	]) or die;
 
 	# build any assets that need to be built
 	IPC::Cmd::run( command => [
