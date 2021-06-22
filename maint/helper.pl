@@ -739,10 +739,10 @@ sub cmd_setup_macports_ci {
 	]) or die;
 
 	_log "Using sudo to edit MacPorts configuration\n";
-	system( qw(sudo), $^X, qw(-e), 'do $ARGV[0]; _macports_edit_conf()', '--', File::Spec->rel2abs($0) );
+	system( qw(sudo), $^X, qw(-e), 'do shift @ARGV; _macports_edit_conf_runner()', '--', File::Spec->rel2abs($0) );
 }
 
-sub _macports_edit_conf {
+sub _macports_edit_conf_runner {
 	my $macports_conf_path = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports macports.conf) );
 	my $variants_conf_path = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports variants.conf) );
 
