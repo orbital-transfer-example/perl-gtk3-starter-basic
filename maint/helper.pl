@@ -980,7 +980,8 @@ sub cmd_install_macports {
 	my @files_to_upload;
 
 	my @new_files = grep { ! exists $assets_archives{ File::Basename::basename($_) } } @files_found;
-	use Data::Dumper; print Dumper(\@new_files);
+
+	@files_to_upload = @new_files;
 
 	if( @files_to_upload ) {
 		IPC::Cmd::run( command => [
