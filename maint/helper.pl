@@ -728,6 +728,8 @@ sub cmd_build_msi {
 
 use constant MACPORTS_PREFIX => '/opt/orb';
 
+our $MACPORTS_CACHED_BUILD_DIR = "@{[ MACPORTS_PREFIX ]}/var/macports/incoming/_cached";
+
 sub cmd_setup_macports_ci {
 	# Use <https://github.com/GiovanniBussi/macports-ci> to install MacPorts in CI
 	IPC::Cmd::run( command => [
@@ -743,8 +745,11 @@ sub cmd_setup_macports_ci {
 }
 
 sub _macports_edit_conf_runner {
-	my $macports_conf_path = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports macports.conf) );
-	my $variants_conf_path = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports variants.conf) );
+	my $macports_etc_path  = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports) );
+	my $macports_conf_path = File::Spec->catfile( $macports_etc_path, qw(macports.conf) );
+	my $variants_conf_path = File::Spec->catfile( $macports_etc_path, qw(variants.conf) );
+	my $archives_conf_path = File::Spec->catfile( $macports_etc_path, qw(archive_sites.conf) );
+	my $pubkeys_conf_path  = File::Spec->catfile( $macports_etc_path, qw(pubkeys.conf) );
 
 	my $data = read_devops_file();
 	my $macports_pkg_data = $data->{native}{ PLATFORM_MACOS_MACPORTS() };
@@ -756,6 +761,12 @@ sub _macports_edit_conf_runner {
 	my $mp_vari_fh = IO::File->new;
 	$mp_vari_fh->open( $variants_conf_path, O_WRONLY|O_APPEND)
 		or die "Could not open $variants_conf_path";
+	my $mp_site_fh = IO::File->new;
+	$mp_site_fh->open( $archives_conf_path, O_WRONLY|O_APPEND)
+		or die "Could not open $archives_conf_path";
+	my $mp_pk_fh = IO::File->new;
+	$mp_pk_fh->open( $pubkeys_conf_path, O_WRONLY|O_APPEND)
+		or die "Could not open $pubkeys_conf_path";
 	if( exists $macports_dist_data->{macosx_deployment_target} ) {
 		die "macosx_deployment_target invalid"
 			unless $macports_dist_data->{macosx_deployment_target} =~ /^(10|11).[0-9]+$/;
@@ -777,7 +788,35 @@ EOF
 		print $mp_vari_fh join "\n", @{ $macports_pkg_data->{variants} };
 	}
 
-	system( qw(tail -20), $macports_conf_path, $variants_conf_path );
+	# use cached path
+	print $mp_site_fh <<EOF;
+
+name                    My Cached Builds
+urls                    file://${MACPORTS_CACHED_BUILD_DIR}
+prefix                  @{[ MACPORTS_PREFIX ]}
+applications_dir        @{[ MACPORTS_PREFIX ]}/Applications
+
+EOF
+
+	# Sign the binary archives <https://trac.macports.org/wiki/howto/ShareArchives2>
+	my $privkey_path = File::Spec->catfile( $macports_etc_path, 'local-privkey.pem');
+	my $pubkey_path  = File::Spec->catfile( $macports_etc_path, 'local-pubkey.pem');
+
+	system(
+		qw(openssl genrsa),
+		qw(-out), $privkey_path,
+		qw(2048)
+	) == 0 or die;
+
+	system(
+		qw(openssl rsa),
+		qw(-in), $privkey_path,
+		qw(-pubout -out), $pubkey_path,
+	) == 0 or die;
+
+	print $mp_pk_fh "$pubkey_path\n";
+
+	system( qw(tail -20), $macports_conf_path, $variants_conf_path, $archives_conf_path, $pubkeys_conf_path );
 }
 
 sub _gh_check_for_release {
@@ -803,6 +842,9 @@ sub cmd_install_macports {
 	my $data = read_devops_file();
 	my $macports_pkg_data = $data->{native}{ PLATFORM_MACOS_MACPORTS() };
 	my $mp_softare_path = File::Spec->catfile( MACPORTS_PREFIX, qw(var macports software) );
+	my $mp_incoming_path = File::Spec->catfile( MACPORTS_PREFIX, qw(var macports incoming verified) );
+	my $macports_etc_path  = File::Spec->catfile( MACPORTS_PREFIX, qw(etc macports) );
+	my $privkey_path = File::Spec->catfile( $macports_etc_path, 'local-privkey.pem');
 
 	my $release_tag = 'continuous-macports';
 	my $release_title = 'Continuous MacPorts builds';
@@ -811,8 +853,8 @@ sub cmd_install_macports {
 	#   $ gh auth status
 
 	my $release_exists = _gh_check_for_release( $release_tag );
-	my %software_from_assets;
-	my %ports_from_assets;
+	my %ports_assets;
+	my %assets_archives;
 	if( $release_exists ) {
 		# get list of assets
 		my @asset_urls = do {
@@ -831,12 +873,24 @@ sub cmd_install_macports {
 		# download the assets and move them into ports software directory
 		for my $asset_url (@asset_urls) {
 			_log "Downloading asset $asset_url\n";
-			system( qw(curl -LO), $asset_url );
 			my $asset_name = (split '/', $asset_url)[-1];
+			$asset_name =~ s/%2B/+/g; # percent encoding unescape
+			system( qw(curl -L),
+				$asset_url,
+				qw(--output), $asset_name,
+			);
+
+			my $asset_sign_name = "${asset_name}.rmd160";
+
+			system( qw(sudo), qw(openssl dgst -ripemd160),
+				qw(-sign), $privkey_path,
+				qw(-out), $asset_sign_name,
+				$asset_name,
+			) == 0 or die;
 
 			my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
 				command => [
-					qw(tar  xjf),
+					qw(tar xjf),
 						$asset_name,
 						qw(-O ./+CONTENTS)
 				],
@@ -846,26 +900,37 @@ sub cmd_install_macports {
 				split /\n/, join "", @$stdout_buff;
 			my ($port_name) = $port_name_line =~ /^\@portname\s+(.*)$/;
 
-			my $port_dir = File::Spec->catfile($mp_softare_path, $port_name);
-			my $source_path = $asset_name;
-			my $target_path = File::Spec->catfile( $port_dir, $asset_name );
+			my $port_dir = File::Spec->catfile($MACPORTS_CACHED_BUILD_DIR, $port_name);
+			do {
+				my $source_path = $asset_name;
+				my $target_path = File::Spec->catfile( $port_dir, $asset_name );
 
-			system( qw(sudo), $^X, qw(-e), 'do shift @ARGV; _move_file_runner()', '--',
-				File::Spec->rel2abs($0),
-				$source_path, $target_path
-			) == 0 or die;
+				system( qw(sudo), $^X, qw(-e), 'do shift @ARGV; _move_file_runner()', '--',
+					File::Spec->rel2abs($0),
+					$source_path, $target_path
+				) == 0 or die;
+			};
+			do {
+				my $source_path = $asset_sign_name;
+				my $target_path = File::Spec->catfile( $port_dir, $asset_sign_name );
 
-			$software_from_assets{$target_path} = 1;
-			$ports_from_assets{$port_name} = 1;
+				system( qw(sudo), $^X, qw(-e), 'do shift @ARGV; _move_file_runner()', '--',
+					File::Spec->rel2abs($0),
+					$source_path, $target_path
+				) == 0 or die;
+			};
+
+			$assets_archives{$asset_name} = 1;
+			$ports_assets{$port_name} = $asset_name;
 		}
 	}
 
 	# install using archives instead of building from source
 	# TODO should be the intersection of deps of
-	# $macports_pkg_data->{packages} and ports_from_assets
+	# $macports_pkg_data->{packages} and ports_assets
 	IPC::Cmd::run( command => [
-		qw(sudo port -N install -b --unrequested),
-			( keys %ports_from_assets )
+		qw(sudo port -N install --unrequested -b),
+			( keys %ports_assets )
 	]) or die;
 
 	# build any assets that need to be built
@@ -897,7 +962,7 @@ sub cmd_install_macports {
 
 	my @files_to_upload;
 
-	my @new_files = grep { ! exists $software_from_assets{$_} } @files_found;
+	my @new_files = grep { ! exists $assets_archives{ File::Basename::basename($_) } } @files_found;
 	use Data::Dumper; print Dumper(\@new_files);
 
 	if( @files_to_upload ) {
