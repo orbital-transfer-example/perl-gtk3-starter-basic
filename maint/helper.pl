@@ -938,7 +938,7 @@ sub cmd_install_macports {
 
 	# build any assets that need to be built
 	IPC::Cmd::run( command => [
-		qw( sudo port -N install -s ),
+		qw( sudo port -N install ),
 			@{ $macports_pkg_data->{packages} }
 	]) or die;
 
