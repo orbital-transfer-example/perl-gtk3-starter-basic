@@ -935,15 +935,16 @@ sub cmd_install_macports {
 		}
 	}
 
-	# install using archives instead of building from source
-	# TODO should be the intersection of deps of
-	# $macports_pkg_data->{packages} and ports_assets
-	my @ports_with_assets = keys %ports_assets;
-	if( @ports_with_assets ) {
-		IPC::Cmd::run( command => [
-			qw(sudo port -N install --unrequested -b),
-				@ports_with_assets
-		]) or die;
+	my $should_install_all_cached_ports = 0;
+	if( $should_install_all_cached_ports ) {
+		# Install all pre-built port binary archives.
+		my @ports_with_assets = keys %ports_assets;
+		if( @ports_with_assets ) {
+			IPC::Cmd::run( command => [
+				qw(sudo port -N install --unrequested -b),
+					@ports_with_assets
+			]) or die;
+		}
 	}
 
 	# build any assets that need to be built
