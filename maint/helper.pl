@@ -947,7 +947,10 @@ sub cmd_install_macports {
 		}
 	}
 
-	# build any assets that need to be built
+	# This will install from the cached directory for any already built
+	# ports.
+	#
+	# Ports that have not been built will be built from source.
 	IPC::Cmd::run( command => [
 		qw( sudo port -N install ),
 			@{ $macports_pkg_data->{packages} }
