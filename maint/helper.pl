@@ -788,6 +788,16 @@ EOF
 		print $mp_vari_fh join "\n", @{ $macports_pkg_data->{variants} };
 	}
 
+	# Per the MacPorts documentation, this should shadow the default
+	# MacPorts archive source.
+	#
+	# It also should not be working in this case as the prefix is not the
+	# default prefix of /opt/local.
+	print $mp_site_fh <<EOF;
+
+name                	macports_archives
+
+EOF
 	# use cached path
 	print $mp_site_fh <<EOF;
 
