@@ -771,7 +771,7 @@ sub _macports_edit_conf_runner {
 		die "macosx_deployment_target invalid"
 			unless $macports_dist_data->{macosx_deployment_target} =~ /^(10|11).[0-9]+$/;
 		print $mp_conf_fh <<EOF
-buildfromsource always
+buildfromsource ifneeded
 macosx_deployment_target @{[ $macports_dist_data->{macosx_deployment_target} ]}
 EOF
 	}
@@ -928,14 +928,17 @@ sub cmd_install_macports {
 	# install using archives instead of building from source
 	# TODO should be the intersection of deps of
 	# $macports_pkg_data->{packages} and ports_assets
-	IPC::Cmd::run( command => [
-		qw(sudo port -N install --unrequested -b),
-			( keys %ports_assets )
-	]) or die;
+	my @ports_with_assets = keys %ports_assets;
+	if( @ports_with_assets ) {
+		IPC::Cmd::run( command => [
+			qw(sudo port -N install --unrequested -b),
+				@ports_with_assets
+		]) or die;
+	}
 
 	# build any assets that need to be built
 	IPC::Cmd::run( command => [
-		qw( sudo port -N install ),
+		qw( sudo port -N install -s ),
 			@{ $macports_pkg_data->{packages} }
 	]) or die;
 
