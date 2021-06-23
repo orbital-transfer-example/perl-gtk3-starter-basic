@@ -15,7 +15,6 @@ native:
   macos-macports:
     packages:
       - gtk3
-      - gtk-osx-application-gtk3
       - gobject-introspection
       - adwaita-icon-theme
     variants:
