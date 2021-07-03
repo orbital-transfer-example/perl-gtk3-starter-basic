@@ -48,6 +48,8 @@ my $command_dispatch = {
 	'build-msi' => \&cmd_build_msi,
 	'setup-macports-ci' => \&cmd_setup_macports_ci,
 	'install-macports' => \&cmd_install_macports,
+	'setup-for-dmg' => \&cmd_setup_for_dmg,
+	'build-dmg' => \&cmd_build_dmg,
 };
 
 sub main {
@@ -118,6 +120,7 @@ sub get_gha_prefix {
 	return $PLATFORM_PREFIX_GHA->{ _get_platform_type() };
 }
 
+# Directory under which build work is done.
 sub get_prefix {
 	if( _is_github_action() ) {
 		return get_gha_prefix();
@@ -126,8 +129,20 @@ sub get_prefix {
 	File::Spec->catfile( Cwd::getcwd(), 'build' );
 }
 
+# Directory under which components are installed.
+#
+# By default, the same as get_prefix()
+our $INSTALL_PREFIX;
+sub get_install_prefix() {
+	if( ! $INSTALL_PREFIX ) {
+		return get_prefix();
+	}
+
+	return $INSTALL_PREFIX;
+}
+
 sub get_perl_install_prefix {
-	File::Spec->catfile(get_prefix(), 'perl5');
+	File::Spec->catfile(get_install_prefix(), 'perl5');
 }
 
 sub get_tool_prefix {
@@ -135,12 +150,12 @@ sub get_tool_prefix {
 }
 
 sub get_app_install_prefix {
-	File::Spec->catfile(get_prefix(), 'app');
+	File::Spec->catfile(get_install_prefix(), 'app');
 }
 
 sub get_msys2_install_prefix {
 	# /mingw64 gets installed under $PREFIX/mingw64
-	get_prefix();
+	get_install_prefix();
 }
 
 sub get_msys2_base {
@@ -286,7 +301,7 @@ sub cmd_run_tests {
 }
 
 sub cmd_create_dist_tarball {
-	my ($basename, $dirname) = File::Basename::fileparse( get_prefix() );
+	my ($basename, $dirname) = File::Basename::fileparse( get_install_prefix() );
 	my $tarball_name = "$basename.tbz2";
 	IPC::Cmd::run( command => [
 		qw( tar cjvf ), $tarball_name,
@@ -428,7 +443,7 @@ sub _build_msi_par_packer {
 
 	my ($fh, $filename) = File::Temp::tempfile();
 	my $app_rel_prefix = [ File::Spec->splitdir(
-		File::Spec->abs2rel( get_app_install_prefix(), get_prefix() )
+		File::Spec->abs2rel( get_app_install_prefix(), get_install_prefix() )
 	) ];
 
 	print $fh <<'EOF';
@@ -504,7 +519,7 @@ EOF
 		# Modules to bundle
 		( map { qw(-M), $_ } qw(Env Tie::Array local::lib) ),
 		qw( -vvv -n -B ),
-		qw(-o), File::Spec->catfile( get_prefix(), $exec_info->{par_output_name} ),
+		qw(-o), File::Spec->catfile( get_install_prefix(), $exec_info->{par_output_name} ),
 		$filename,
 	]) or die;
 }
@@ -596,9 +611,14 @@ sub _build_msi_get_paraffin {
 	return $paraffin_exe;
 }
 
+sub _git_version_from_tags {
+	chomp( my $git_version = `git describe --exact-match --tags` );
+	$git_version;
+}
+
 sub _build_msi_build_wix {
 	my $old_cwd = Cwd::getcwd();
-	my $prefix = get_prefix();
+	my $prefix = get_install_prefix();
 
 	require Data::UUID;
 	require Template;
@@ -619,9 +639,8 @@ sub _build_msi_build_wix {
 	$wix_data->{uuid} = Data::UUID->new;
 	$wix_data->{dirs} = \@dirs;
 
-	# Get version from tags + commit
 	_install_native_packages([ qw(git) ]); # should have git
-	chomp( my $git_version = `git describe --exact-match --tags` );
+	my $git_version = _git_version_from_tags();
 	$wix_data->{package_version} = $git_version || '0.0.0.0';
 
 	chdir $prefix;
@@ -990,6 +1009,95 @@ sub cmd_install_macports {
 			$release_tag,
 			@files_to_upload
 		]) or die;
+	}
+}
+
+sub cmd_setup_for_dmg {
+	my $prefix = get_prefix();
+	my $data = read_devops_file();
+	my $dmg_data = $data->{dist}{ PLATFORM_MACOS_MACPORTS() }{dmg};
+	my $app_name = $dmg_data->{'app-name'};
+
+	# Set up paths
+	my $install_dir = "/Applications/${app_name}.app";
+	my $app_build_dir = File::Spec->catfile(
+		$prefix, "${app_name}.app"
+	);
+
+	# Template paths
+	my @T_DIR_RESOURCES = qw(Contents Resources);
+	my @T_DIR_MACPORTS  = ( @T_DIR_RESOURCES,
+		File::Spec->splitdir(MACPORTS_PREFIX) );
+
+	my $app_res = File::Spec->catfile(
+		$app_build_dir, @T_DIR_RESOURCES
+	);
+
+	# Install everything under the build dir's Contents/Resources
+	$INSTALL_PREFIX = $app_res;
+	_setup_perl_install();
+
+	my $app_mp = File::Spec->catfile(
+		$app_build_dir, @T_DIR_MACPORTS
+	);
+
+	my $app_perl5 = File::Spec->catfile(
+		$app_res, qw(perl5),
+	);
+
+	# Make directory structure
+	for my $dir ($install_dir, $app_build_dir, $app_res, $app_mp) {
+		File::Path::make_path( $dir );
+	}
+
+	# Copy *contents* of MACPORTS_PREFIX into $app_mp
+	# and change ownership to user.
+	IPC::Cmd::run( command => [
+		qw(sudo cp -aR), MACPORTS_PREFIX . "/.", $app_mp
+	]) or die;
+	IPC::Cmd::run( command => [
+		qw(sudo chown -R), "$ENV{USER}:", $app_mp
+	]) or die;
+
+	unshift @PATH, File::Spec->catfile(
+		$app_mp, qw(bin)
+	);
+
+	# Make perl refer to perl5.30
+	symlink 'perl5.30', File::Spec->catfile(
+		$app_mp, qw(bin perl),
+	);
+	symlink 'prove-5.30', File::Spec->catfile(
+		$app_mp, qw(bin prove),
+	);
+
+	cmd_setup_cpan_client();
+	cmd_install_via_cpanfile();
+
+	IPC::Cmd::run( command => [
+		qw(cpanm .),
+		qw(--verbose -n --no-man-pages),
+		qw(-l), get_app_install_prefix(),
+	]) or die;
+}
+
+sub cmd_build_dmg {
+	my $prefix = get_prefix();
+	my $data = read_devops_file();
+	my $dmg_data = $data->{dist}{ PLATFORM_MACOS_MACPORTS() }{dmg};
+	my $app_name = $dmg_data->{'app-name'};
+
+	my $git_version = _git_version_from_tags();
+
+	my $dmg_path = File::Spec->catfile(
+		$prefix,
+		"${app_name} version @{[ $git_version || 'noversion' ]}.dmg"
+	);
+
+	# TODO call create-dmg
+
+	if( _is_github_action() ) {
+		print '::set-output name=asset::', $dmg_path,  "\n";
 	}
 }
 
