@@ -984,7 +984,10 @@ sub cmd_install_macports {
 	# Ports that have not been built will be built from source.
 	IPC::Cmd::run( command => [
 		qw( sudo port -N install ),
-			@{ $macports_pkg_data->{packages} }
+			@{ $macports_pkg_data->{packages} },
+
+			# Needed for build-time
+			qw(pkgconfig),
 	]) or die;
 
 	## ignore exit value because it may possibly not exist yet
