@@ -1183,9 +1183,46 @@ sub cmd_setup_for_dmg {
 		}
 	}
 
+
+	my @gir_files;
+	my $gir_dir_path = File::Spec->catfile($app_mp, 'share/gir-1.0');
+	my $typelib_dir_path = File::Spec->catfile($app_mp, 'lib/girepository-1.0');
+	File::Find::find(
+		sub { push @gir_files, $File::Find::name if -f && $_ =~ /\.gir$/ },
+		File::Spec->catfile($app_mp, 'share/gir-1.0') );
+
+	for my $gir_file (@gir_files) {
+		local $ENV{HELPER_PREFIX} = MACPORTS_PREFIX;
+
+		system(
+			qw(perl -pi -e),
+			'if( $_ =~ /shared-library/ ) {
+				my $needle = $ENV{HELPER_PREFIX};
+
+				# correct location of gdk_pixbuf dylib
+				my $patch_gdk_pixbuf_find = q|shared-library="./gdk-pixbuf/libgdk_pixbuf-2.0.0.dylib"|;
+				my $patch_gdk_pixbuf_repl = qq|shared-library="$needle/lib/libgdk_pixbuf-2.0.0.dylib"|;
+				$_ =~ s|\Q$patch_gdk_pixbuf_find\E|$patch_gdk_pixbuf_repl|;
+
+				# use @executable_path to find library
+				$_ =~ s,\Q$needle/\E,\@executable_path/../,g;
+			}',
+			$gir_file,
+		) == 0 or die;
+		my $gir_basename = File::Basename::basename( $gir_file, qw(.gir) );
+		my $typelib_name = File::Spec->catfile( $typelib_dir_path, "${gir_basename}.typelib" );
+
+		system(
+			qw(g-ir-compiler),
+			"--output=$typelib_name",
+			$gir_file,
+		) == 0 or die;
+	}
+
 	print <<EOF;
 export PERL5LIB="$output_perl5lib";
 export PATH="$app_mp/bin:\$PATH";
+export GI_TYPELIB_PATH="$app_mp/lib/girepository-1.0";
 perl -I $app_perl5/lib/perl5 -Mlocal::lib=--no-create,$app_perl5,$app_app -S prove
 EOF
 
