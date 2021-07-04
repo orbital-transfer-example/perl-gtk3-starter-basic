@@ -1027,6 +1027,29 @@ sub cmd_install_macports {
 	}
 }
 
+sub _otool_libs {
+	my ($file) = @_;
+
+	my @libs = do {
+		my ($ok, $err, $full_buf, $stdout_buff, $stderr_buff) = IPC::Cmd::run(
+			command => [ qw(otool -L), $file  ],
+			verbose => 0,
+		) or die;
+
+		my @lines = split /\n/, join "", @$stdout_buff;
+
+		# first line is $file
+		shift @lines;
+		map {
+			$_ =~ m%[[:blank:]]+(.*/([^/]*\.dylib))[[:blank:]]+\(compatibility version%;
+			my $path = $1;
+			$path;
+		} @lines;
+	};
+
+	\@libs;
+}
+
 sub cmd_setup_for_dmg {
 	my $prefix = get_prefix();
 	my $data = read_devops_file();
@@ -1057,9 +1080,8 @@ sub cmd_setup_for_dmg {
 		$app_build_dir, @T_DIR_MACPORTS
 	);
 
-	my $app_perl5 = File::Spec->catfile(
-		$app_res, qw(perl5),
-	);
+	my $app_perl5 = get_perl_install_prefix();
+	my $app_app = get_app_install_prefix();
 
 	# Make directory structure
 	for my $dir ($install_dir, $app_build_dir, $app_res, $app_mp) {
@@ -1075,6 +1097,7 @@ sub cmd_setup_for_dmg {
 		qw(sudo chown -R), "$ENV{USER}:", $app_mp
 	]) or die;
 
+	# exec to perl after this refers to macports perl
 	unshift @PATH, File::Spec->catfile(
 		$app_mp, qw(bin)
 	);
@@ -1093,8 +1116,55 @@ sub cmd_setup_for_dmg {
 	IPC::Cmd::run( command => [
 		qw(cpanm .),
 		qw(--verbose -n --no-man-pages),
-		qw(-l), get_app_install_prefix(),
+		qw(-l), $app_app,
 	]) or die;
+
+
+	my @MP_PERL_INC = do {
+		local $ENV{PERL5LIB} = '';
+		local $ENV{PERL5OPT} = '';
+		local $ENV{PERLLIB} = '';
+		# If `env -i` is used to ignore environment, then it needs to
+		# be as
+		#
+		#     env -i \$(which perl)
+		#
+		# to get the MacPorts Perl without the path.
+		split /\n/, `perl -e 'print join "\\n", \@INC; print "\\n"'`
+	};
+
+	my $output_perl5lib = join ":", map {
+		my $inc_path = $_;
+		$inc_path =~ s,^/,,;
+		"$app_res/$inc_path"
+	} @MP_PERL_INC;
+
+	my $perl_path = File::Spec->catfile( $app_mp, qw(bin perl) );
+	my $libs = _otool_libs( $perl_path );
+	for my $lib (@$libs) {
+		next unless index($lib, MACPORTS_PREFIX) == 0;
+		my $rel_to_dir = File::Spec->abs2rel(
+			File::Spec->catfile(
+				$app_mp,
+				File::Spec->abs2rel($lib, MACPORTS_PREFIX)
+			),
+			File::Basename::dirname($perl_path)
+		);
+		IPC::Cmd::run( command => [
+			qw(install_name_tool -change),
+				$lib,
+				"\@executable_path/$rel_to_dir",
+				$perl_path
+		]) or die;
+	}
+
+	print <<EOF;
+export PERL5LIB="$output_perl5lib";
+export PATH="$app_mp/bin:\$PATH";
+perl -I $app_perl5/lib/perl5 -Mlocal::lib=--no-create,$app_perl5,$app_app -S prove
+EOF
+
+	die;
 }
 
 sub cmd_build_dmg {
