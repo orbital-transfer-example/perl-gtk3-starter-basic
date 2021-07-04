@@ -24,6 +24,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup for DMG
         run: /usr/bin/perl ./maint/helper.pl setup-for-dmg
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+
       - name: Build DMG
         id: build-dmg
         run: /usr/bin/perl ./maint/helper.pl build-dmg
