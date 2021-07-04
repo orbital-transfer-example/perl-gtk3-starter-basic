@@ -1084,18 +1084,21 @@ sub cmd_setup_for_dmg {
 	my $app_app = get_app_install_prefix();
 
 	# Make directory structure
-	for my $dir ($install_dir, $app_build_dir, $app_res, $app_mp) {
+	for my $dir ($install_dir, $app_build_dir, $app_res) {
 		File::Path::make_path( $dir );
 	}
 
 	# Copy *contents* of MACPORTS_PREFIX into $app_mp
 	# and change ownership to user.
-	IPC::Cmd::run( command => [
-		qw(sudo cp -aR), MACPORTS_PREFIX . "/.", $app_mp
-	]) or die;
-	IPC::Cmd::run( command => [
-		qw(sudo chown -R), "$ENV{USER}:", $app_mp
-	]) or die;
+	if( ! -d $app_mp ) {
+		File::Path::make_path($app_mp);
+		IPC::Cmd::run( command => [
+			qw(sudo cp -aR), MACPORTS_PREFIX . "/.", $app_mp
+		]) or die;
+		IPC::Cmd::run( command => [
+			qw(sudo chown -R), "$ENV{USER}:", $app_mp
+		]) or die;
+	}
 
 	# exec to perl after this refers to macports perl
 	unshift @PATH, File::Spec->catfile(
