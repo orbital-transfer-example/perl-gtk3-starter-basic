@@ -1150,6 +1150,13 @@ sub cmd_setup_for_dmg {
 		sub { push @paths_to_change, $File::Find::name if -f && $_ =~ /\.bundle$/ },
 		$app_perl5 );
 
+	# Recursive processing of _otool_libs is not enough. Do it for all libs
+	# because of the way that GObject Introspection loads other libraries
+	# using the typelibs.
+	File::Find::find(
+		sub { push @paths_to_change, $File::Find::name if -f && $_ =~ /\.dylib$/ },
+		File::Spec->catfile($app_mp, 'lib') );
+
 	my %paths_changed;
 	for my $change_path (@paths_to_change) {
 		next if exists $paths_changed{$change_path};
