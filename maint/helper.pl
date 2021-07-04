@@ -1035,6 +1035,7 @@ sub cmd_setup_for_dmg {
 	my $app_build_dir = File::Spec->catfile(
 		$prefix, "${app_name}.app"
 	);
+	$app_build_dir =~ s/ /-/g; # no space for build
 
 	# Template paths
 	my @T_DIR_RESOURCES = qw(Contents Resources);
