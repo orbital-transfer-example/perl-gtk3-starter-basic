@@ -1040,7 +1040,7 @@ sub _otool_libs {
 
 		# first line is $file
 		shift @lines;
-		map {
+		grep { defined } map {
 			$_ =~ m%[[:blank:]]+(.*/([^/]*\.dylib))[[:blank:]]+\(compatibility version%;
 			my $path = $1;
 			$path;
@@ -1143,22 +1143,37 @@ sub cmd_setup_for_dmg {
 	} @MP_PERL_INC;
 
 	my $perl_path = File::Spec->catfile( $app_mp, qw(bin perl) );
-	my $libs = _otool_libs( $perl_path );
-	for my $lib (@$libs) {
-		next unless index($lib, MACPORTS_PREFIX) == 0;
-		my $rel_to_dir = File::Spec->abs2rel(
-			File::Spec->catfile(
+	my @paths_to_change;
+	push @paths_to_change, $perl_path;
+
+	File::Find::find(
+		sub { push @paths_to_change, $File::Find::name if -f && $_ =~ /\.bundle$/ },
+		$app_perl5 );
+
+	my %paths_changed;
+	for my $change_path (@paths_to_change) {
+		next if exists $paths_changed{$change_path};
+		$paths_changed{$change_path} = 1;
+		_log "Processing libs for $change_path\n";
+		my $libs = _otool_libs( $change_path );
+		for my $lib (@$libs) {
+			next unless index($lib, MACPORTS_PREFIX) == 0;
+			my $lib_under_app_mp = File::Spec->catfile(
 				$app_mp,
 				File::Spec->abs2rel($lib, MACPORTS_PREFIX)
-			),
-			File::Basename::dirname($perl_path)
-		);
-		IPC::Cmd::run( command => [
-			qw(install_name_tool -change),
-				$lib,
-				"\@executable_path/$rel_to_dir",
-				$perl_path
-		]) or die;
+			);
+			push @paths_to_change, $lib_under_app_mp;
+			my $rel_to_dir = File::Spec->abs2rel(
+				$lib_under_app_mp,
+				File::Basename::dirname($perl_path)
+			);
+			IPC::Cmd::run( command => [
+				qw(install_name_tool -change),
+					$lib,
+					"\@executable_path/$rel_to_dir",
+					$change_path
+			]) or die;
+		}
 	}
 
 	print <<EOF;
