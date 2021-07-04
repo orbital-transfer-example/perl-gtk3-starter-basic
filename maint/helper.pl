@@ -23,7 +23,6 @@ use Env qw(
 	@PERL5LIB
 	$PERL_LOCAL_LIB_ROOT
 	$PERL_MB_OPT $PERL_MM_OPT
-	$PERL_CPANM_OPT
 	$PERL5OPT
 );
 use Cwd ();
@@ -209,15 +208,28 @@ sub cmd_get_packages {
 	print join(' ', @$packages), "\n";
 }
 
+our @CPAN_CLIENT_MODULES = qw(App::cpanminus App::cpm local::lib);
 use constant {
 	# NOTE using shell
-	RUN_INST_CPANM_V_CURL => 'curl https://cpanmin.us | perl - App::cpanminus App::cpm local::lib -n --no-man-pages',
-	RUN_INST_CPANM_V_CPAN => 'yes | cpan -T App::cpanminus App::cpm local::lib || true',
+	RUN_INST_CPANM_V_CPAN => "yes | cpan -T @CPAN_CLIENT_MODULES || true",
 };
 sub cmd_setup_cpan_client {
-	$PERL_CPANM_OPT = "-L @{[ get_perl_install_prefix() ]}";
 	if( IPC::Cmd::can_run('curl' ) ) {
-		IPC::Cmd::run( command => RUN_INST_CPANM_V_CURL ) or die;
+		my $tmpdir = File::Temp::tempdir( CLEANUP => 1 );
+		my $cpanm_down = File::Spec->catfile(
+			$tmpdir, 'cpanm'
+		);
+		IPC::Cmd::run( command => [
+			qw(curl https://cpanmin.us),
+				qw(-o), $cpanm_down
+		]) or die;
+
+		IPC::Cmd::run( command => [
+			qw(perl), $cpanm_down,
+			@CPAN_CLIENT_MODULES,
+			qw(-L), get_perl_install_prefix(),
+			qw(-n --no-man-pages),
+		] ) or die;
 	} else {
 		IPC::Cmd::run( command => RUN_INST_CPANM_V_CPAN ) or die;
 	}
