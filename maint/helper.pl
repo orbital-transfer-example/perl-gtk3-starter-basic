@@ -1337,8 +1337,8 @@ end shell_setup_gdk_pixbuf
 
 on shell_perl_command()
 	return "perl "  ¬
-		& " -I " & get_path_to_perl5() & "/lib/perl5"  ¬
-		& " -Mlocal::lib=--no-create," & get_path_to_perl5() & "," & get_path_to_app()  ¬
+		& " -I '" & get_path_to_perl5() & "/lib/perl5'"  ¬
+		& " '-Mlocal::lib=--no-create," & get_path_to_perl5() & "," & get_path_to_app() & "'"  ¬
 		& " "
 end shell_perl_command
 
