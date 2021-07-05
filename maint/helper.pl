@@ -1153,8 +1153,11 @@ sub cmd_setup_for_dmg {
 	# Recursive processing of _otool_libs is not enough. Do it for all libs
 	# because of the way that GObject Introspection loads other libraries
 	# using the typelibs.
+	#
+	# Here .so files are also included because the gdk-pixbuf loaders use
+	# the .so suffix.
 	File::Find::find(
-		sub { push @paths_to_change, $File::Find::name if -f && $_ =~ /\.dylib$/ },
+		sub { push @paths_to_change, $File::Find::name if -f && $_ =~ /\.(dylib|so)$/ },
 		File::Spec->catfile($app_mp, 'lib') );
 
 	my %paths_changed;
@@ -1318,6 +1321,16 @@ on shell_export_gi_typelib_path()
 	return "export GI_TYPELIB_PATH='" & get_path_to_macports() & "/lib/girepository-1.0';"
 end shell_export_gi_typelib_path
 
+on shell_setup_gdk_pixbuf()
+	set pixbufLoaderPath to "/lib/gdk-pixbuf-2.0/2.10.0"
+	-- NOTE The GDK_PIXBUF_MODULE_FILE can be set to be anywhere and not
+	-- necessarily stored in the bundle.
+	return  ¬
+		& "export GDK_PIXBUF_MODULEDIR='"   & get_path_to_macports() & pixbufLoaderPath & "/loaders';" ¬
+		& "export GDK_PIXBUF_MODULE_FILE='" & get_path_to_macports() & pixbufLoaderPath & "/loaders.cache';"  ¬
+		& "gdk-pixbuf-query-loaders --update-cache;"
+end shell_setup_gdk_pixbuf
+
 on shell_perl_command()
 	return "perl "  ¬
 		& " -I " & get_path_to_perl5() & "/lib/perl5"  ¬
@@ -1341,6 +1354,7 @@ on run
 		& shell_export_perl5lib() ¬
 		& shell_export_xdg_data_dirs() ¬
 		& shell_export_gi_typelib_path() ¬
+		& shell_setup_gdk_pixbuf() ¬
 		& shell_perl_run_app()
 		-- & shell_perl_prove()
 
