@@ -1342,8 +1342,37 @@ EOSCRIPT
 		$tmp_scrpt_path
 	]) or die;
 
+	my $git_version = _git_version_from_tags();
+	my $version_short = $git_version;
+	my $version_long = "$app_name $version_short";
 
-	die;
+	my $plistbuddy = '/usr/libexec/PlistBuddy';
+	my $info_plist_path = File::Spec->catfile($app_build_dir, 'Contents/Info.plist');
+	system( qw(chmod a+w), $info_plist_path );
+	system( $plistbuddy, '-c',
+		"Add :NSUIElement integer 1",
+		$info_plist_path );
+	system( $plistbuddy, '-c',
+		"Add :CFBundleIdentifier string @{[ $dmg_data->{plist}{CFBundleIdentifier} ]}",
+		$info_plist_path );
+
+	system( $plistbuddy, '-c',
+		"Add :CFBundleShortVersionString string $version_short",
+		$info_plist_path );
+	system( $plistbuddy, '-c',
+		"Add :CFBundleVersion string \"$version_long\"",
+		$info_plist_path );
+	system( $plistbuddy, '-c',
+		"Add :NSHumanReadableCopyright string \"@{[ $dmg_data->{plist}{NSHumanReadableCopyright}  ]}\"",
+		$info_plist_path );
+
+	system( $plistbuddy, '-c',
+		"Set :LSMinimumSystemVersionByArchitecture:x86_64 \"@{[ $dmg_data->{plist}{'LSMinimumSystemVersionByArchitecture:x86_64'} ]}\"",
+		$info_plist_path );
+
+	system( qw(plutil -convert xml1), $info_plist_path );
+	system( qw(chmod a=r), $info_plist_path );
+
 }
 
 sub cmd_build_dmg {
