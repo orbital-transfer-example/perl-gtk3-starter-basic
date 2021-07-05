@@ -12,6 +12,24 @@ native:
       - gtk-mac-integration
       - gobject-introspection
       - gnome-icon-theme
+  macos-macports:
+    packages:
+      - gtk3
+      - gobject-introspection
+      - adwaita-icon-theme
+    variants:
+      - '+no_static'
+      - '-x11'
+      - '+no_x11'
+      - '+quartz'
+      - '-perl5_26'
+      - '-perl5_28'
+      - '+perl5_30'
+      - '-python27'
+      - '-python36'
+      - '-python37'
+      - '-python38'
+      - '+python39'
   msys2-mingw64:
     packages:
       - mingw-w64-x86_64-gobject-introspection
@@ -19,6 +37,14 @@ native:
 dist:
   app:
     script: 'bin/app.pl'
+  macos-macports:
+    macosx_deployment_target: '10.10'
+    dmg:
+      app-name: "Perl Gtk3 Starter Basic"
+      plist:
+        CFBundleIdentifier: "io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic"
+        NSHumanReadableCopyright: "Perl_5 license"
+        LSMinimumSystemVersionByArchitecture_x86_64: '10.10.0'
   msys2-mingw64:
     wix:
       app_shortname: 'perl-gtk3-starter'

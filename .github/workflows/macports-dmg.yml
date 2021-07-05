@@ -1,0 +1,48 @@
+name: macports-dmg
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+
+jobs:
+  perl:
+
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup MacPorts
+        run: /usr/bin/perl ./maint/helper.pl setup-macports-ci
+      - name: Install ports
+        run: /usr/bin/perl ./maint/helper.pl install-macports
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup for DMG
+        run: /usr/bin/perl ./maint/helper.pl setup-for-dmg
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+
+      - name: Build DMG
+        id: build-dmg
+        run: /usr/bin/perl ./maint/helper.pl build-dmg
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: macos-dmg
+          path: ${{  steps.build-dmg.outputs.asset }}
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{  steps.build-dmg.outputs.asset }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
