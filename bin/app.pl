@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!perl
 # PODNAME: app
 # ABSTRACT: Perl Gtk3 application
 
