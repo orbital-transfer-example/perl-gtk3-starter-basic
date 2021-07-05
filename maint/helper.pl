@@ -1220,11 +1220,128 @@ sub cmd_setup_for_dmg {
 	}
 
 	print <<EOF;
+######
 export PERL5LIB="$output_perl5lib";
 export PATH="$app_mp/bin:\$PATH";
 export GI_TYPELIB_PATH="$app_mp/lib/girepository-1.0";
 perl -I $app_perl5/lib/perl5 -Mlocal::lib=--no-create,$app_perl5,$app_app -S prove
+######
 EOF
+
+
+	my $tmpdir = File::Temp::tempdir( CLEANUP => 1 );
+	my $tmp_scrpt_path = File::Spec->catfile(
+		$tmpdir, 'main.scpt'
+	);
+	my $tmp_scrpt_fh = IO::File->new;
+	$tmp_scrpt_fh->open( $tmp_scrpt_path, O_WRONLY)
+		or die "Could not open $tmp_scrpt_path";
+
+	print $tmp_scrpt_fh <<EOSCRIPT;
+--- Utils
+
+on joinAList(theList, delim)
+	set newString to ""
+	set oldDelims to AppleScript's text item delimiters
+	set AppleScript's text item delimiters to delim
+	set newString to theList as string
+	set AppleScript's text item delimiters to oldDelims
+	return newString
+end joinAList
+
+
+
+--- Get paths
+
+on get_path_to_bundle()
+	# use code to get path to bundle
+	if (path to me as string) ends with ":" then
+		# Running as bundle
+		set bundlePath to POSIX path of (path to me as text)
+		return bundlePath
+	else
+		set scriptsPath to parent of (path to me)
+		set resPath to parent of scriptsPath
+		set contentsPath to parent of resPath
+		set bundlePath to POSIX path of (parent of contentsPath as text)
+		return bundlePath
+	end if
+end get_path_to_bundle
+
+on get_path_to_res()
+	return get_path_to_bundle() & "/Contents/Resources"
+end get_path_to_res
+
+on get_path_to_macports()
+	return get_path_to_res() & "@{[ MACPORTS_PREFIX ]}"
+end get_path_to_macports
+
+on get_path_to_perl5()
+	return get_path_to_res() & "/perl5"
+end get_path_to_perl5
+
+on get_path_to_app()
+	return get_path_to_res() & "/app"
+end get_path_to_app
+
+--- Shell fragments
+
+on shell_export_path()
+	return "export PATH=\\"" & get_path_to_macports() & "/bin:\$PATH\\";"
+end shell_export_path
+
+on shell_export_perl5lib()
+	set perl5ListRel to  { ¬
+		@{[ join ",  ¬\n", map { qq|"$_"|  }  @MP_PERL_INC ]} }
+
+	set perl5ListAbs to {}
+
+	repeat with i in perl5ListRel
+		copy ( get_path_to_res() & i ) to end of perl5ListAbs
+	end repeat
+
+	set perl5ListDelim to joinAList(perl5ListAbs, ":")
+
+	return "export PERL5LIB='" & perl5ListDelim & "';"
+end shell_export_perl5lib
+
+on shell_export_gi_typelib_path()
+	return "export GI_TYPELIB_PATH='" & get_path_to_macports() & "/lib/girepository-1.0';"
+end shell_export_gi_typelib_path
+
+on shell_perl_command()
+	return "perl "  ¬
+		& " -I " & get_path_to_perl5() & "/lib/perl5"  ¬
+		& " -Mlocal::lib=--no-create," & get_path_to_perl5() & "," & get_path_to_app()  ¬
+		& " "
+end shell_perl_command
+
+on shell_perl_prove()
+	return  shell_perl_command() & " -S prove -v"
+end shell_perl_prove
+
+--- Run
+
+on run
+	set cmd to ""
+	set cmd to shell_export_path() & shell_export_perl5lib() & shell_export_gi_typelib_path() & shell_perl_prove()
+
+	-- Debug cmd variable
+	#do shell script "cat \<\<'EOF'\\n" & cmd & "\\nEOF"
+	#do shell script "cat > debug-cmd.sh \<\<'EOF'\n" & cmd & "\\nEOF"
+
+	-- Run contents of cmd
+	do shell script cmd
+end run
+
+EOSCRIPT
+
+	IPC::Cmd::run( command => [
+		qw(osacompile),
+		qw(-o), File::Spec->catfile( $app_res, qw(Scripts main.scpt) ),
+		$tmp_scrpt_path
+	]) or die;
+
 
 	die;
 }
