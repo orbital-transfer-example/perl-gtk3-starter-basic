@@ -1084,10 +1084,13 @@ sub cmd_setup_for_dmg {
 	my $app_perl5 = get_perl_install_prefix();
 	my $app_app = get_app_install_prefix();
 
-	# Make directory structure
-	for my $dir ($app_build_dir, $app_res) {
-		File::Path::make_path( $dir );
-	}
+	# Make directory structure for app bundle and supporting files
+	File::Path::make_path(File::Basename::dirname($app_build_dir));
+	IPC::Cmd::run( command => [
+		qw(osacompile),
+			qw(-o), $app_build_dir,
+			qw(-e), " ",
+	]) or die;
 
 	# Copy *contents* of MACPORTS_PREFIX into $app_mp
 	# and change ownership to user.
