@@ -1058,9 +1058,10 @@ sub cmd_setup_for_dmg {
 
 	# Set up paths
 	my $install_dir = "/Applications/${app_name}.app";
-	my $app_build_dir = File::Spec->catfile(
+	my $app_build_dir_orig = File::Spec->catfile(
 		$prefix, "${app_name}.app"
 	);
+	my $app_build_dir = $app_build_dir_orig;
 	$app_build_dir =~ s/ /-/g; # no space for build
 
 	# Template paths
@@ -1084,7 +1085,7 @@ sub cmd_setup_for_dmg {
 	my $app_app = get_app_install_prefix();
 
 	# Make directory structure
-	for my $dir ($install_dir, $app_build_dir, $app_res) {
+	for my $dir ($app_build_dir, $app_res) {
 		File::Path::make_path( $dir );
 	}
 
@@ -1421,6 +1422,11 @@ EOSCRIPT
 			"$app_mp/share/devhelp",
 			"$app_mp/share/examples",
 	]) or die;
+
+	# Place in directory with (possible) spaces
+	IPC::Cmd::run( command => [
+		qw(mv), $app_build_dir, $app_build_dir_orig,
+	]) or die;
 }
 
 sub _build_dmg_get_create_dmg {
@@ -1459,7 +1465,6 @@ sub cmd_build_dmg {
 	my $app_build_dir = File::Spec->catfile(
 		$prefix, "${app_name}.app"
 	);
-	$app_build_dir =~ s/ /-/g; # no space for build
 
 	my $git_version = _git_version_from_tags();
 	my $version_string = $git_version || 'noversion';
