@@ -1443,6 +1443,7 @@ sub cmd_build_dmg {
 	IPC::Cmd::run( command => [
 		$create_dmg,
 		qw(--hdiutil-verbose),
+		qw(--sandbox-safe),
 		qw(--volname), $volume_name,
 		qw(--window-size 550 500),
 		qw(--icon-size 48),
