@@ -1310,6 +1310,10 @@ on shell_export_perl5lib()
 	return "export PERL5LIB='" & perl5ListDelim & "';"
 end shell_export_perl5lib
 
+on shell_export_xdg_data_dirs()
+	return "export XDG_DATA_DIRS='" & get_path_to_macports() & "/share';"
+end shell_export_xdg_data_dirs
+
 on shell_export_gi_typelib_path()
 	return "export GI_TYPELIB_PATH='" & get_path_to_macports() & "/lib/girepository-1.0';"
 end shell_export_gi_typelib_path
@@ -1335,6 +1339,7 @@ on run
 	set cmd to ""
 	set cmd to shell_export_path() ¬
 		& shell_export_perl5lib() ¬
+		& shell_export_xdg_data_dirs() ¬
 		& shell_export_gi_typelib_path() ¬
 		& shell_perl_run_app()
 		-- & shell_perl_prove()
