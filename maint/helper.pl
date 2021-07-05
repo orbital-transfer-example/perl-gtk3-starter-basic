@@ -1329,7 +1329,7 @@ on shell_setup_gdk_pixbuf()
 	set pixbufLoaderPath to "/lib/gdk-pixbuf-2.0/2.10.0"
 	-- NOTE The GDK_PIXBUF_MODULE_FILE can be set to be anywhere and not
 	-- necessarily stored in the bundle.
-	return  ¬
+	return  "" ¬
 		& "export GDK_PIXBUF_MODULEDIR='"   & get_path_to_macports() & pixbufLoaderPath & "/loaders';" ¬
 		& "export GDK_PIXBUF_MODULE_FILE='" & get_path_to_macports() & pixbufLoaderPath & "/loaders.cache';"  ¬
 		& "gdk-pixbuf-query-loaders --update-cache;"
