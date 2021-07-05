@@ -1372,7 +1372,33 @@ EOSCRIPT
 
 	system( qw(plutil -convert xml1), $info_plist_path );
 	system( qw(chmod a=r), $info_plist_path );
+}
 
+sub _build_dmg_get_create_dmg {
+	my $cdmg_tool_dir = File::Spec->catfile( get_tool_prefix(), 'create-dmg');
+	my $version = 'master';
+	my $cdmg_download_url = "https://github.com/create-dmg/create-dmg/archive/refs/heads/$version.zip";
+	my $cdmg_zip_path = File::Spec->catfile( $cdmg_tool_dir, 'create-dmg.zip' );
+
+	my $cdmg_top_dir = File::Spec->catfile( $cdmg_tool_dir, 'extract' );
+	my $cdmg_exe = File::Spec->catfile($cdmg_top_dir, "create-dmg-$version", 'create-dmg');
+
+	if( !-d $cdmg_tool_dir ) {
+		File::Path::make_path( $cdmg_tool_dir );
+		IPC::Cmd::run( command => [
+			qw(wget),
+			qw(-O), $cdmg_zip_path,
+			$cdmg_download_url,
+		]) or die;
+		File::Path::make_path $cdmg_top_dir;
+		IPC::Cmd::run( command => [
+			qw(unzip),
+			$cdmg_zip_path,
+			qw(-d), $cdmg_top_dir
+		]) or die;
+	}
+
+	return $cdmg_exe;
 }
 
 sub cmd_build_dmg {
@@ -1381,14 +1407,34 @@ sub cmd_build_dmg {
 	my $dmg_data = $data->{dist}{ PLATFORM_MACOS_MACPORTS() }{dmg};
 	my $app_name = $dmg_data->{'app-name'};
 
+	my $app_build_dir = File::Spec->catfile(
+		$prefix, "${app_name}.app"
+	);
+	$app_build_dir =~ s/ /-/g; # no space for build
+
 	my $git_version = _git_version_from_tags();
+	my $version_string = $git_version || 'noversion';
+	my $volume_name = "$app_name $version_string";
 
 	my $dmg_path = File::Spec->catfile(
 		$prefix,
-		"${app_name} version @{[ $git_version || 'noversion' ]}.dmg"
+		"${app_name} version $version_string.dmg"
 	);
 
-	# TODO call create-dmg
+	# call create-dmg
+	my $create_dmg = _build_dmg_get_create_dmg;
+	IPC::Cmd::run( command => [
+		$create_dmg,
+		qw(--volname), $volume_name,
+		qw(--window-size 550 500),
+		qw(--icon-size 48),
+		qw(--icon), "${app_name}.app", qw(125 180),
+		qw(--hide-extension), "${app_name}.app",
+		qw(--app-drop-link 415 180),
+		qw(--disk-image-size 4500),
+		$dmg_path,
+		$app_build_dir
+	]) or die;
 
 	if( _is_github_action() ) {
 		print '::set-output name=asset::', $dmg_path,  "\n";
