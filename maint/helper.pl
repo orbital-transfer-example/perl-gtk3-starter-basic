@@ -1432,13 +1432,14 @@ sub cmd_build_dmg {
 	my $create_dmg = _build_dmg_get_create_dmg;
 	IPC::Cmd::run( command => [
 		$create_dmg,
+		qw(--hdiutil-verbose),
 		qw(--volname), $volume_name,
 		qw(--window-size 550 500),
 		qw(--icon-size 48),
 		qw(--icon), "${app_name}.app", qw(125 180),
 		qw(--hide-extension), "${app_name}.app",
 		qw(--app-drop-link 415 180),
-		qw(--disk-image-size 4500),
+		#qw(--disk-image-size 4500),
 		$dmg_path,
 		$app_build_dir
 	]) or die;
