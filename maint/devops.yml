@@ -44,7 +44,7 @@ dist:
       plist:
         CFBundleIdentifier: "io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic"
         NSHumanReadableCopyright: "Perl_5 license"
-        'LSMinimumSystemVersionByArchitecture:x86_64': '10.10.0'
+        LSMinimumSystemVersionByArchitecture_x86_64: '10.10.0'
   msys2-mingw64:
     wix:
       app_shortname: 'perl-gtk3-starter'

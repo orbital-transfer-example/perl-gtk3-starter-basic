@@ -1367,7 +1367,7 @@ EOSCRIPT
 		$info_plist_path );
 
 	system( $plistbuddy, '-c',
-		"Set :LSMinimumSystemVersionByArchitecture:x86_64 \"@{[ $dmg_data->{plist}{'LSMinimumSystemVersionByArchitecture:x86_64'} ]}\"",
+		"Set :LSMinimumSystemVersionByArchitecture:x86_64 \"@{[ $dmg_data->{plist}{'LSMinimumSystemVersionByArchitecture_x86_64'} ]}\"",
 		$info_plist_path );
 
 	system( qw(plutil -convert xml1), $info_plist_path );
