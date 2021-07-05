@@ -1289,7 +1289,10 @@ end get_path_to_app
 --- Shell fragments
 
 on shell_export_path()
-	return "export PATH=\\"" & get_path_to_macports() & "/bin:\$PATH\\";"
+	return "export PATH=\\"" ¬
+		& get_path_to_app() & "/bin" & ":" ¬
+		& get_path_to_macports() & "/bin" & ":" ¬
+		& "\$PATH\\";"
 end shell_export_path
 
 on shell_export_perl5lib()
@@ -1319,14 +1322,22 @@ on shell_perl_command()
 end shell_perl_command
 
 on shell_perl_prove()
-	return  shell_perl_command() & " -S prove -v"
+	return  shell_perl_command() & " -S prove -v" & " ;"
 end shell_perl_prove
+
+on shell_perl_run_app()
+	return  shell_perl_command() & " -S app.pl" & " ;"
+end shell_perl_run_app
 
 --- Run
 
 on run
 	set cmd to ""
-	set cmd to shell_export_path() & shell_export_perl5lib() & shell_export_gi_typelib_path() & shell_perl_prove()
+	set cmd to shell_export_path() ¬
+		& shell_export_perl5lib() ¬
+		& shell_export_gi_typelib_path() ¬
+		& shell_perl_run_app()
+		-- & shell_perl_prove()
 
 	-- Debug cmd variable
 	#do shell script "cat \<\<'EOF'\\n" & cmd & "\\nEOF"
