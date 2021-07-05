@@ -1260,10 +1260,12 @@ on get_path_to_bundle()
 		set bundlePath to POSIX path of (path to me as text)
 		return bundlePath
 	else
-		set scriptsPath to parent of (path to me)
-		set resPath to parent of scriptsPath
-		set contentsPath to parent of resPath
-		set bundlePath to POSIX path of (parent of contentsPath as text)
+		 tell application "Finder"
+			set scriptsPath to parent of (path to me)
+			set resPath to parent of scriptsPath
+			set contentsPath to parent of resPath
+			set bundlePath to POSIX path of (parent of contentsPath as text)
+		end tell
 		return bundlePath
 	end if
 end get_path_to_bundle
