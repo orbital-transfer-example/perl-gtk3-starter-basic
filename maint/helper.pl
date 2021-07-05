@@ -1150,6 +1150,10 @@ sub cmd_setup_for_dmg {
 	my @paths_to_change;
 	push @paths_to_change, $perl_path;
 
+	for my $bin_name ( qw(gdk-pixbuf-query-loaders) ) {
+		push @paths_to_change, File::Spec->catfile( $app_mp, qw(bin), $bin_name );
+	}
+
 	File::Find::find(
 		sub { push @paths_to_change, $File::Find::name if -f && $_ =~ /\.bundle$/ },
 		$app_perl5 );
