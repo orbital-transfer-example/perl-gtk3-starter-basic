@@ -1100,11 +1100,6 @@ sub cmd_setup_for_dmg {
 		]) or die;
 	}
 
-	# Remove MacPorts data
-	IPC::Cmd::run( command => [
-		qw(rm -R), "$app_mp/var/macports"
-	]) or die;
-
 	# exec to perl after this refers to macports perl
 	unshift @PATH, File::Spec->catfile(
 		$app_mp, qw(bin)
@@ -1379,6 +1374,21 @@ EOSCRIPT
 
 	system( qw(plutil -convert xml1), $info_plist_path );
 	system( qw(chmod a=r), $info_plist_path );
+
+	# Remove MacPorts data
+	IPC::Cmd::run( command => [
+		qw(rm -R), "$app_mp/var/macports"
+	]) or die;
+	# Remove docs
+	IPC::Cmd::run( command => [
+		qw(rm -Rf),
+			"$app_mp/share/doc",
+			"$app_mp/share/man",
+			"$app_mp/share/info",
+			"$app_mp/share/gtk-doc",
+			"$app_mp/share/devhelp",
+			"$app_mp/share/examples",
+	]) or die;
 }
 
 sub _build_dmg_get_create_dmg {
