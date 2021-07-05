@@ -1234,7 +1234,7 @@ EOF
 		$tmpdir, 'main.scpt'
 	);
 	my $tmp_scrpt_fh = IO::File->new;
-	$tmp_scrpt_fh->open( $tmp_scrpt_path, O_WRONLY|O_APPEND)
+	$tmp_scrpt_fh->open( $tmp_scrpt_path, 'w')
 		or die "Could not open $tmp_scrpt_path";
 
 	print $tmp_scrpt_fh <<EOSCRIPT;
@@ -1328,7 +1328,7 @@ on run
 
 	-- Debug cmd variable
 	#do shell script "cat \<\<'EOF'\\n" & cmd & "\\nEOF"
-	#do shell script "cat > debug-cmd.sh \<\<'EOF'\n" & cmd & "\\nEOF"
+	#do shell script "cat > debug-cmd.sh \<\<'EOF'\\n" & cmd & "\\nEOF"
 
 	-- Run contents of cmd
 	do shell script cmd
@@ -1336,6 +1336,8 @@ end run
 
 EOSCRIPT
 
+	my $main_scpt_output_path = File::Spec->catfile( $app_res, qw(Scripts main.scpt) );
+	File::Path::make_path( File::Basename::dirname($main_scpt_output_path) );
 	IPC::Cmd::run( command => [
 		qw(osacompile),
 		qw(-o), File::Spec->catfile( $app_res, qw(Scripts main.scpt) ),
