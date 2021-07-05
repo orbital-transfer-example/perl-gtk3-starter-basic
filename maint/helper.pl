@@ -1100,6 +1100,11 @@ sub cmd_setup_for_dmg {
 		]) or die;
 	}
 
+	# Remove MacPorts data
+	IPC::Cmd::run( command => [
+		qw(rm -R), "$app_mp/var/macports"
+	]) or die;
+
 	# exec to perl after this refers to macports perl
 	unshift @PATH, File::Spec->catfile(
 		$app_mp, qw(bin)
