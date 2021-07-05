@@ -1234,7 +1234,7 @@ EOF
 		$tmpdir, 'main.scpt'
 	);
 	my $tmp_scrpt_fh = IO::File->new;
-	$tmp_scrpt_fh->open( $tmp_scrpt_path, O_WRONLY)
+	$tmp_scrpt_fh->open( $tmp_scrpt_path, O_WRONLY|O_APPEND)
 		or die "Could not open $tmp_scrpt_path";
 
 	print $tmp_scrpt_fh <<EOSCRIPT;
