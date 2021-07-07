@@ -120,6 +120,7 @@ sub get_gha_prefix {
 }
 
 # Directory under which build work is done.
+# Assume that there are no spaces in the path.
 sub get_prefix {
 	if( _is_github_action() ) {
 		return get_gha_prefix();
@@ -1061,8 +1062,14 @@ sub cmd_setup_for_dmg {
 	my $app_build_dir_orig = File::Spec->catfile(
 		$prefix, "${app_name}.app"
 	);
-	my $app_build_dir = $app_build_dir_orig;
-	$app_build_dir =~ s/ /-/g; # no space for build
+
+	# no spaces in path for build
+	my $app_name_no_spaces = $app_name;
+	$app_name_no_spaces =~ s/ /-/g;
+	my $app_build_dir = File::Spec->catfile(
+		$prefix, "${app_name_no_spaces}.app"
+	);
+
 
 	# Template paths
 	my @T_DIR_RESOURCES = qw(Contents Resources);
@@ -1477,9 +1484,11 @@ sub cmd_build_dmg {
 	my $version_string = $git_version || 'noversion';
 	my $volume_name = "$app_name $version_string";
 
+	my $app_name_no_spaces = $app_name;
+	$app_name_no_spaces =~ s/ /-/g;
 	my $dmg_path = File::Spec->catfile(
 		$prefix,
-		"${app_name} version $version_string.dmg"
+		"${app_name_no_spaces}-${version_string}.dmg"
 	);
 
 	# call create-dmg
