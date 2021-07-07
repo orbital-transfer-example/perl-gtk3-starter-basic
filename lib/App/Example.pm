@@ -109,6 +109,7 @@ sub _increment_clicking_button_count {
 
 sub BUILD {
 	my ($self, $args) = @_;
+	Glib::set_application_name( $self->app_name );
 	$self->application->signal_connect(
 		activate => sub {
 			$self->main_window->show_all;
