@@ -3,4 +3,5 @@ on 'configure' => sub {
 };
 
 requires 'Gtk3';
+requires 'Glib::IO';
 requires 'Mu';
