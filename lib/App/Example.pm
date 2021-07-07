@@ -2,8 +2,9 @@ package App::Example;
 # ABSTRACT: An example Gtk3 app
 
 use Mu;
-use Gtk3 -init;
+use Gtk3;
 use Glib;
+use Glib::IO;
 
 =attr app_name
 
@@ -12,6 +13,26 @@ Name of the application.
 =cut
 lazy app_name => sub { "My Example App" };
 
+=attr app_id
+
+Identifier for application.
+
+=cut
+lazy app_id => sub { "io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic" };
+
+=attr application
+
+The GtkApplication instance.
+
+=cut
+lazy application => sub {
+	my ($self) = @_;
+	Gtk3::Application->new(
+		$self->app_id,
+		'G_APPLICATION_FLAGS_NONE'
+	);
+};
+
 =attr main_window
 
 Main application window.
@@ -19,7 +40,7 @@ Main application window.
 =cut
 lazy main_window => sub {
 	my ($self) = @_;
-	my $w = Gtk3::Window->new;
+	my $w = Gtk3::ApplicationWindow->new( $self->application );
 	$w->set_title( $self->app_name );
 
 	$w->add( $self->clicking_button );
@@ -27,7 +48,8 @@ lazy main_window => sub {
 	$self->clicking_button->set_valign('center');
 
 	$w->signal_connect(
-		destroy => \&on_application_quit_cb, $self );
+		delete_event => sub { $self->application->quit },
+	);
 	$w->set_default_size( 800, 600 );
 	$w;
 };
@@ -85,6 +107,18 @@ sub _increment_clicking_button_count {
 	$self->clicking_button_count( $self->clicking_button_count + 1 );
 }
 
+sub BUILD {
+	my ($self, $args) = @_;
+	$self->application->signal_connect(
+		activate => sub {
+			$self->main_window->show_all;
+		},
+	);
+	$self->application->signal_connect(
+		shutdown => \&on_application_shutdown_cb,
+	);
+}
+
 =method main
 
 Starts the application.
@@ -93,7 +127,6 @@ Starts the application.
 sub main {
 	my ($self) = @_;
 	$self = __PACKAGE__->new unless ref $self;
-	$self->main_window->show_all;
 	$self->run;
 }
 
@@ -104,17 +137,17 @@ Starts the L<Gtk3> event loop.
 =cut
 sub run {
 	my ($self) = @_;
-	Gtk3::main;
+	$self->application->run(\@ARGV);
 }
 
-=func on_application_quit_cb
+=func on_application_shutdown_cb
 
 Callback that exits the L<Gtk3> event loop.
 
 =cut
-sub on_application_quit_cb {
+sub on_application_shutdown_cb {
 	my ($event, $self) = @_;
-	Gtk3::main_quit;
+	# clean up code here
 }
 
 1;
