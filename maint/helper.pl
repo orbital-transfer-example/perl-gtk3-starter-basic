@@ -181,7 +181,7 @@ sub _setup_perl_install {
 	$PERL_MM_OPT = "INSTALL_BASE=$perl5_dir";
 
 	if( _is_msys2_mingw() ) {
-		$PERL5OPT="-I@{[ Cwd::getcwd() ]}/maint -MEUMMnosearch";
+		$PERL5OPT="-I@{[ File::Basename::dirname(File::Spec->rel2abs(__FILE__)) ]} -MEUMMnosearch";
 	}
 }
 
