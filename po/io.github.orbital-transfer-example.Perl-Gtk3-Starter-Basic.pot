@@ -18,8 +18,8 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
 
-#: lib/App/Example.pm:18 lib/App/Example.pm:20
-msgid "My Example App"
+#: lib/App/Example.pm:20
+msgid "My Example Application"
 msgstr ""
 
 #: lib/App/Example.pm:74 lib/App/Example.pm:76

@@ -17,7 +17,7 @@ use Locale::TextDomain APP_ID;
 Name of the application.
 
 =cut
-lazy app_name => sub { __"My Example App" };
+lazy app_name => sub { __"My Example Application" };
 
 =attr app_id
 
