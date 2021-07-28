@@ -8,19 +8,23 @@ use Glib::IO;
 
 our $VERSION = v0.0.1;
 
+use constant APP_ID => q/io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic/;
+
+use Locale::TextDomain APP_ID;
+
 =attr app_name
 
 Name of the application.
 
 =cut
-lazy app_name => sub { "My Example App" };
+lazy app_name => sub { __"My Example App" };
 
 =attr app_id
 
 Identifier for application.
 
 =cut
-lazy app_id => sub { q/io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic/ };
+lazy app_id => sub { APP_ID };
 
 =attr application
 
@@ -69,7 +73,7 @@ lazy clicking_button => sub {
 	my $button = Gtk3::Button->new_from_icon_name(q/input-mouse/,
 		Glib::Object::Introspection->convert_sv_to_enum( q{Gtk3::IconSize}, q/button/ )
 	);
-	$button->set_label("Click here");
+	$button->set_label(__"Click here");
 	$button->set(q/always-show-image/, Glib::TRUE);
 
 	$button->signal_connect(
@@ -77,12 +81,13 @@ lazy clicking_button => sub {
 			$self->_increment_clicking_button_count;
 			my $count = $self->clicking_button_count;
 			$button->set_label(
-				sprintf(
-					( $count == 1
-						? "You have clicked %d time!"
-						: "You have clicked %d times!" ),
-					$count )
-				);
+				__nx(
+					"You have clicked {count} time!",
+					"You have clicked {count} times!",
+					$count,
+					count => $count,
+				)
+			);
 		}
 	);
 
