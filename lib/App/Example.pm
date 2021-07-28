@@ -6,6 +6,8 @@ use Gtk3;
 use Glib;
 use Glib::IO;
 
+our $VERSION = v0.0.1;
+
 =attr app_name
 
 Name of the application.

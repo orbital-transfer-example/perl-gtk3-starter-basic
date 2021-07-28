@@ -654,7 +654,9 @@ sub _build_msi_build_wix {
 
 	_install_native_packages([ qw(git) ]); # should have git
 	my $git_version = _git_version_from_tags();
-	$wix_data->{package_version} = $git_version || '0.0.0.0';
+	my $wix_version = $git_version;
+	$wix_version =~ s/^v//g;
+	$wix_data->{package_version} = $git_version ? $wix_version : '0.0.0.0';
 
 	chdir $prefix;
 	$tt->process( \<<TEMPLATE, $wix_data, $main_wxs ) or die $tt->error, "\n";
