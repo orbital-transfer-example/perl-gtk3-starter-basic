@@ -10,7 +10,7 @@ our $VERSION = v0.0.1;
 
 use constant APP_ID => q/io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic/;
 
-use Locale::TextDomain APP_ID;
+use Locale::TextDomain::UTF8 APP_ID;
 
 =attr app_name
 
