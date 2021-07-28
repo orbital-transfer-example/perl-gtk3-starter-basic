@@ -20,7 +20,7 @@ lazy app_name => sub { "My Example App" };
 Identifier for application.
 
 =cut
-lazy app_id => sub { "io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic" };
+lazy app_id => sub { q/io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic/ };
 
 =attr application
 
@@ -31,7 +31,7 @@ lazy application => sub {
 	my ($self) = @_;
 	Gtk3::Application->new(
 		$self->app_id,
-		'G_APPLICATION_FLAGS_NONE'
+		q/G_APPLICATION_FLAGS_NONE/
 	);
 };
 
@@ -46,8 +46,8 @@ lazy main_window => sub {
 	$w->set_title( $self->app_name );
 
 	$w->add( $self->clicking_button );
-	$self->clicking_button->set_halign('center');
-	$self->clicking_button->set_valign('center');
+	$self->clicking_button->set_halign(q/center/);
+	$self->clicking_button->set_valign(q/center/);
 
 	$w->signal_connect(
 		delete_event => sub { $self->application->quit },
@@ -66,12 +66,11 @@ lazy clicking_button => sub {
 
 	# NOTE Getting icon size out of enum. Look for Gtk3::IconSize overrides
 	# in Gtk3.pm
-	my $button = Gtk3::Button->new_from_icon_name('input-mouse',
-		Glib::Object::Introspection->convert_sv_to_enum( 'Gtk3::IconSize', 'button' )
+	my $button = Gtk3::Button->new_from_icon_name(q/input-mouse/,
+		Glib::Object::Introspection->convert_sv_to_enum( q{Gtk3::IconSize}, q/button/ )
 	);
 	$button->set_label("Click here");
-	$button->set('always-show-image', Glib::TRUE);
-	my $label = "Click here";
+	$button->set(q/always-show-image/, Glib::TRUE);
 
 	$button->signal_connect(
 		clicked => sub {
