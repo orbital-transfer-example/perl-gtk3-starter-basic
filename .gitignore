@@ -3,3 +3,7 @@ build/
 
 # Vagrant configuration
 .vagrant/
+
+# gettext output
+po/*.gmo
+*.mo
