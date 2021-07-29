@@ -21,9 +21,7 @@ config :: share/LocaleData
 clean :: clean_locale
 
 clean_locale:
-	- $(RM_RF) \
-	  share/LocaleData \
-	  po/*.gmo
+	cd po && $(MAKE) clean
 
 share/LocaleData: po/io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic.pot
 	cd po && $(MAKE) install
