@@ -2,6 +2,7 @@
 
 srcdir = .
 libdir = ../lib
+sharedir = ../share
 
 MSGMERGE  = msgmerge
 MSGFMT    = msgfmt
@@ -33,7 +34,9 @@ POTFILES = $(srcdir)/POTFILES \
 pot: $(TD).pot
 
 clean:
-	rm -f *~ *.bak *.gmo
+	rm -f *~ *.bak *.gmo; \
+	targetdir='$(sharedir)/LocaleData'; \
+	rm -rfv $$targetdir
 
 $(TD).pot: $(POTFILES)
 	$(XGETTEXT) --output=$(srcdir)/$(TD).pox --from-code=utf-8 \
@@ -46,7 +49,7 @@ $(TD).pot: $(POTFILES)
 
 install: $(MO_FILES)
 	cd $(srcdir); \
-	targetdir='$(libdir)/LocaleData'; \
+	targetdir='$(sharedir)/LocaleData'; \
 	languages='$(LINGUAS)'; \
 	for lang in $$languages; do \
 		mkdir -p "$$targetdir/$$lang/LC_MESSAGES" || exit 1; \

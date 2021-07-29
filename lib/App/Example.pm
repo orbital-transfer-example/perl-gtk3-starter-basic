@@ -9,8 +9,35 @@ use Glib::IO;
 our $VERSION = v0.0.1;
 
 use constant APP_ID => q/io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic/;
+use constant DIST_NAME => q/App-Example/;
 
-use Locale::TextDomain::UTF8 APP_ID;
+use Locale::Messages qw(bindtextdomain);
+use File::ShareDir;
+use File::Spec;
+use FindBin;
+
+BEGIN {
+	my $share_dir;
+	my $locale_data_dir = undef;
+	if( $share_dir = eval { File::ShareDir::dist_dir(DIST_NAME) || '' } ) {
+		$locale_data_dir = File::Spec->catfile(
+			File::Spec->canonpath( $share_dir ),
+			"LocaleData"
+		);
+	} elsif( $share_dir = eval {
+			my $dir = File::Spec->catfile($FindBin::Bin, '..', 'share');
+			die unless -d $dir;
+			$dir;
+		} ) {
+		$locale_data_dir = File::Spec->catfile(
+			$share_dir,
+			"LocaleData"
+		);
+	}
+	require Locale::TextDomain::UTF8;
+	warn "No locale data found" unless $locale_data_dir;
+	Locale::TextDomain::UTF8->import(APP_ID, $locale_data_dir);
+}
 
 =attr app_name
 
