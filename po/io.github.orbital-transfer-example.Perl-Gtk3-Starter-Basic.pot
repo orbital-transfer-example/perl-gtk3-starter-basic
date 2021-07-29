@@ -1,0 +1,34 @@
+# App::Example localization messages.
+# Copyright (C) 2021 A.U.Thor
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic v0.0.1\n"
+"Report-Msgid-Bugs-To: A.U.Thor <author@cpan.org>\n"
+"POT-Creation-Date: 2021-07-29 00:07-0400\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: ../lib/App/Example.pm:47
+msgid "My Example Application"
+msgstr ""
+
+#: ../lib/App/Example.pm:103
+msgid "Click here"
+msgstr ""
+
+#: ../lib/App/Example.pm:112
+#, perl-brace-format
+msgid "You have clicked {count} time!"
+msgid_plural "You have clicked {count} times!"
+msgstr[0] ""
+msgstr[1] ""

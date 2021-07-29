@@ -8,19 +8,51 @@ use Glib::IO;
 
 our $VERSION = v0.0.1;
 
+use constant APP_ID => q/io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic/;
+use constant DIST_NAME => q/App-Example/;
+
+use Locale::Messages qw(bindtextdomain);
+use File::ShareDir;
+use File::Spec;
+use FindBin;
+
+BEGIN {
+	my $share_dir;
+	my $locale_data_dir = undef;
+	if( $share_dir = eval { File::ShareDir::dist_dir(DIST_NAME) || '' } ) {
+		$locale_data_dir = File::Spec->catfile(
+			File::Spec->canonpath( $share_dir ),
+			"LocaleData"
+		);
+	} elsif( $share_dir = eval {
+			my $dir = File::Spec->catfile($FindBin::Bin, '..', 'share');
+			die unless -d $dir;
+			$dir;
+		} ) {
+		$locale_data_dir = File::Spec->catfile(
+			$share_dir,
+			"LocaleData"
+		);
+	}
+	$locale_data_dir = undef unless -d $locale_data_dir;
+	require Locale::TextDomain::UTF8;
+	warn "Locale data directory not found.\n" unless $locale_data_dir;
+	Locale::TextDomain::UTF8->import(APP_ID, $locale_data_dir);
+}
+
 =attr app_name
 
 Name of the application.
 
 =cut
-lazy app_name => sub { "My Example App" };
+lazy app_name => sub { __"My Example Application" };
 
 =attr app_id
 
 Identifier for application.
 
 =cut
-lazy app_id => sub { "io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic" };
+lazy app_id => sub { APP_ID };
 
 =attr application
 
@@ -31,7 +63,7 @@ lazy application => sub {
 	my ($self) = @_;
 	Gtk3::Application->new(
 		$self->app_id,
-		'G_APPLICATION_FLAGS_NONE'
+		q/G_APPLICATION_FLAGS_NONE/
 	);
 };
 
@@ -46,8 +78,8 @@ lazy main_window => sub {
 	$w->set_title( $self->app_name );
 
 	$w->add( $self->clicking_button );
-	$self->clicking_button->set_halign('center');
-	$self->clicking_button->set_valign('center');
+	$self->clicking_button->set_halign(q/center/);
+	$self->clicking_button->set_valign(q/center/);
 
 	$w->signal_connect(
 		delete_event => sub { $self->application->quit },
@@ -66,24 +98,24 @@ lazy clicking_button => sub {
 
 	# NOTE Getting icon size out of enum. Look for Gtk3::IconSize overrides
 	# in Gtk3.pm
-	my $button = Gtk3::Button->new_from_icon_name('input-mouse',
-		Glib::Object::Introspection->convert_sv_to_enum( 'Gtk3::IconSize', 'button' )
+	my $button = Gtk3::Button->new_from_icon_name(q/input-mouse/,
+		Glib::Object::Introspection->convert_sv_to_enum( q{Gtk3::IconSize}, q/button/ )
 	);
-	$button->set_label("Click here");
-	$button->set('always-show-image', Glib::TRUE);
-	my $label = "Click here";
+	$button->set_label(__"Click here");
+	$button->set(q/always-show-image/, Glib::TRUE);
 
 	$button->signal_connect(
 		clicked => sub {
 			$self->_increment_clicking_button_count;
 			my $count = $self->clicking_button_count;
 			$button->set_label(
-				sprintf(
-					( $count == 1
-						? "You have clicked %d time!"
-						: "You have clicked %d times!" ),
-					$count )
-				);
+				__nx(
+					"You have clicked {count} time!",
+					"You have clicked {count} times!",
+					$count,
+					count => $count,
+				)
+			);
 		}
 	);
 
