@@ -7,6 +7,12 @@ LINGUAS = fr \
 # Textdomain for our package.
 TEXTDOMAIN = io.github.orbital-transfer-example.Perl-Gtk3-Starter-Basic
 
+TITLE = App::Example localization messages
+
+VERSION = v0.0.1
+
+YEAR = 2021
+
 # Initial copyright holder added to pot and po files.
 COPYRIGHT_HOLDER = A.U.Thor
 

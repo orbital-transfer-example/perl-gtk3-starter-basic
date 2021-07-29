@@ -38,6 +38,10 @@ clean:
 	targetdir='$(sharedir)/LocaleData'; \
 	rm -rfv $$targetdir
 
+export TEXTDOMAIN
+export TITLE
+export VERSION
+export YEAR
 $(TD).pot: $(POTFILES)
 	$(XGETTEXT) --output=$(srcdir)/$(TD).pox --from-code=utf-8 \
 		--add-comments=TRANSLATORS: --files-from=$(srcdir)/POTFILES \
@@ -45,6 +49,11 @@ $(TD).pot: $(POTFILES)
 		--msgid-bugs-address="$(MSGID_BUGS_ADDRESS)" \
                 `$(PERL) -MLocale::TextDomain \
                 -e "print Locale::TextDomain->options"` && \
+	$(PERL) -pi -e ' \
+	  s|^(\Q# \E)\QSOME DESCRIPTIVE TITLE\E(\Q.\E)$$|$$1$$ENV{TITLE}$$2|; \
+	  s|^(\Q# Copyright (C) \E)YEAR(.*)$$|$$1$$ENV{YEAR}$$2|; \
+	  s|^(\Q"Project-Id-Version: \E)PACKAGE VERSION(\Q\n"\E)$$|$$1$$ENV{TEXTDOMAIN} $$ENV{VERSION}$$2|;' \
+	    $(TD).pox && \
 	rm -f $@ && mv $(TD).pox $@
 
 install: $(MO_FILES)
