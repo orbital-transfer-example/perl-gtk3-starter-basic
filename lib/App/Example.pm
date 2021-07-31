@@ -34,7 +34,7 @@ BEGIN {
 			"LocaleData"
 		);
 	}
-	$locale_data_dir = undef unless -d $locale_data_dir;
+	$locale_data_dir = undef unless $locale_data_dir && -d $locale_data_dir;
 	require Locale::TextDomain::UTF8;
 	warn "Locale data directory not found.\n" unless $locale_data_dir;
 	Locale::TextDomain::UTF8->import(APP_ID, $locale_data_dir);
